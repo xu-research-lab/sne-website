@@ -1,246 +1,235 @@
-# Microbial social niches — website
+# SNEs website
 
-The public site for the ecological embeddings of the human gut microbiome. Two
-halves: a static site that needs no server process, and one small endpoint that
-maps amplicon sequences to reference OTUs.
+The public site for social niche embeddings of the human gut microbiome:
+<https://sne.xulab.science>.
 
-```
-web/                  the site: HTML, CSS, ES modules, vendored dependencies
-data/web/             everything the site serves, all built offline
-data/server/          the vsearch database, outside the web root
-script/               the research notebooks and the export scripts
-  web_export/         one-shot build steps; see its README
-server/               FastAPI + vsearch, the only running service
-tests/js/             the browser path against Python
-deploy/               nginx, Docker, systemd, and WEB_CONFIG.md
-```
-
-## What is on the site
+Everything a visitor sees is a static file. The one exception is `/map`, which
+aligns uploaded sequences against the reference OTUs; it is the only process
+running on the server. The dysbiosis model does **not** run on the server — it
+is downloaded and executed in the visitor's browser, which is what lets a
+1-core host serve any number of people.
 
 | Page | What it does |
 |---|---|
-| `/atlas` | 14,093 gut OTUs on a map, searched by taxon, OTU id, or a 16S sequence (one pasted, or a FASTA of many). Each card shows the ecological neighbours and the phylogenetic ones side by side, then the inferred traits with the cross-validated AUC each one earned |
-| `/dysbiosis` | Scores one faecal sample against a reference cohort of 10,276, in the visitor's browser. Three inputs: a ready-made example, an OTU table, or rep-seqs plus counts |
-| `/download` | The vectors, the model, the trait tables, and a link that opens the TensorFlow Embedding Projector with this data loaded |
-| `/cite` | Citation, version, and the numbers you are allowed to quote |
+| `/` | Summary, the key numbers, and how to cite |
+| `/atlas/` | 14,093 gut OTUs on a map. Search by family, genus, species, OTU identifier, or a 16S sequence. Each card shows ecological and phylogenetic neighbours side by side, then the traits |
+| `/dysbiosis/` | Scores one faecal sample against a reference cohort of 10,276, in the browser. Input is an OTU table (six one-click examples) or rep-seqs plus counts |
+| `/download/` | The data files, the version table, and the metadata column reference |
 
 ---
 
-## Deploying
+## Jump to what you need
 
-### What runs where
+| I want to… | Go to |
+|---|---|
+| Change page text, styling or JavaScript | [Update the site](#update-the-site) |
+| Rebuild the data the site serves | [Rebuild the data](#rebuild-the-data) |
+| Set up a new server from scratch | [First deployment](#first-deployment) |
+| Run the site on my laptop | [Local development](#local-development) |
+| Work out why something broke | [Troubleshooting](#troubleshooting) |
+
+---
+
+## How it runs
 
 ```
-                        visitor's browser
-                        ├─ every model inference (onnxruntime-web, WebAssembly)
-                        ├─ every preprocessing step
-                        └─ every figure
-                                 │
-  nginx (host) ──────────────────┼──────────────────────────────────────
-  ├─ /, /atlas, /dysbiosis, …    static files from site/
-  ├─ /data/*                     static files from site/data/
-  └─ /map ───────────► map service on 127.0.0.1:8000
-                       └─ vsearch against data/otu_refseqs.fasta (dysbiosis)
-                          or data/atlas_refseqs.fasta (atlas search)
+visitor's browser
+├─ the dysbiosis model (onnxruntime-web, WebAssembly, ~10 MB once)
+├─ all preprocessing and every figure
+└─ fetches static files only
+         │
+         ▼
+nginx on the server
+├─ /, /atlas/, /dysbiosis/, /download/   files from /srv/microbial/site/
+├─ /data/*                               files from /srv/microbial/site/data/
+└─ /map, /health  ──►  map service on 127.0.0.1:8000
+                       └─ vsearch against /srv/microbial/data/*.fasta
 ```
 
-Only one process runs. The classifier is not on the server: it ships to the
-browser as a 4.5 MB ONNX graph, which is what lets a 1-core host serve an
-arbitrary number of visitors. The mapping endpoint exists because aligning
-sequences is the one thing a browser cannot do.
+Nothing on the server is stateful: no database, no uploads directory, no
+sessions. `/map` writes a temporary file, runs vsearch, deletes it, answers.
+Rebuilding the whole server is a few `rsync` commands.
 
-**Sizing.** 1 vCPU, 2 GB RAM, 20 GB disk. vsearch is single-threaded and the
-container is capped at one core; the static site is a few files on disk.
+**Server size.** 1 vCPU, 2 GB RAM, 20 GB disk is enough. The current host is an
+Alibaba Cloud ECS instance in Silicon Valley.
 
-**What a visit costs.** A first visit transfers about 4.8 MB for `/atlas` and
-9.2 MB for `/dysbiosis`, gzipped — measured over the files each page fetches.
-Most of the second figure is ONNX Runtime itself: 10.9 MB of WebAssembly
-uncompressed, 3.0 MB compressed, fetched once and then served from the browser
-cache. The server does no work beyond sending files.
+**Repository layout.**
 
-### What you need
+```
+web/                 the site itself: HTML, CSS, ES modules, vendored libraries
+data/web/            everything served under /data/ (53 MB, built offline)
+data/server/         the vsearch databases (30 MB, never served to browsers)
+data/silva_tree/     the SILVA reference tree, input to the neighbour export
+script/              research notebooks and the export pipeline
+  web_export/        the build steps, in order; see its own README
+server/              the FastAPI + vsearch service behind /map
+tests/js/            the browser code checked against Python
+deploy/              nginx configs, Docker compose, systemd unit
+```
 
-- The build machine: the one with the BIOM tables and the fold checkpoints.
-  See [Rebuilding the data](#rebuilding-the-data).
-- The server: Ubuntu 22.04/24.04 or Debian 12 (any distribution with nginx
-  ≥ 1.18 works), a domain name pointing at it, and root or sudo.
+---
 
-### Step 1 — build the artefacts
+## Update the site
 
-On the build machine, not the server. This produces everything under
-`data/web/` plus the vsearch database.
+The common case: you edited something under `web/`.
 
 ```bash
-git clone git@github.com:xu-research-lab/sne-website.git && cd sne-website
+# 1. On your machine: check it still works, then push.
+cd tests/js && npm test && cd ../..
+git add web && git commit -m "…" && git push
 
+# 2. On the server:
+cd ~/sne-website && git pull
+script/check_vendor.sh                                      # see the warning below
+sudo rsync -av --delete --exclude=/data web/ /srv/microbial/site/
+```
+
+**If you changed a file under `web/assets/`,** bump its `?v=` number in the page
+that loads it, and in any module that imports it. Browsers hold on to the old
+copy otherwise. For example, after editing `card.js`:
+
+```
+web/assets/js/atlas.js:   import { renderCard } from './card.js?v=9';   ← was v=8
+web/atlas/index.html:     <script src="/assets/js/atlas.js?v=9">        ← was v=8
+```
+
+**If you changed anything in `data/web/`,** that directory is a separate copy:
+
+```bash
+sudo rsync -av --delete data/web/ /srv/microbial/site/data/
+```
+
+**`script/check_vendor.sh` is not optional after a pull.** The onnxruntime
+JavaScript loader is committed, but the three `.wasm` files beside it are 10 MB
+each and are not in git. A pull can therefore leave a new loader next to the
+previous release's WebAssembly, and onnxruntime then fails in the browser
+without naming a version. The script compares both against the pin in
+`script/fetch_vendor.sh` and tells you to run it if they disagree.
+
+---
+
+## Rebuild the data
+
+Only when the model, the embeddings, the traits or the taxonomy change. This
+runs on the machine that has the BIOM tables and the fold checkpoints, never on
+the server.
+
+```bash
 python -m venv --system-site-packages .venv-export
 .venv-export/bin/pip install "onnx==1.15.0" "onnxruntime==1.16.3"
-
-jupyter nbconvert --execute script/atlas_export.ipynb
-.venv-export/bin/python script/web_export/export_dysbiosis.py
-.venv-export/bin/python script/web_export/export_traits.py
-.venv-export/bin/python script/web_export/export_assets.py \
-    --site-url https://your.domain
-.venv-export/bin/python script/web_export/export_golden.py
 ```
 
-`export_dysbiosis.py` takes about 35 minutes and verifies itself before writing
-anything: it reproduces the training run's `pred_test.csv` for all 10,276
-reference samples, then checks onnxruntime against PyTorch. If it fails, do not
-deploy the output.
+Then run the eight steps in [`script/web_export/README.md`](script/web_export/README.md),
+in order. The order matters: step 4 rewrites `meta.json`, and step 8 replaces
+the phylogenetic neighbours that step 1 wrote. That README says what each
+script reads and writes.
 
-`--site-url` must be the public origin. It goes into the Embedding Projector
-config, which Google's server fetches from yours.
+`export_dysbiosis.py` takes about 35 minutes and checks itself before writing
+anything: it reproduces the training run's own predictions for all 10,276
+reference samples, then checks onnxruntime against PyTorch. **If it fails, do
+not deploy its output.**
 
-The browser dependencies are vendored except for two 10 MB `.wasm` files:
+Afterwards, copy the new data to the server with the `data/web/` command above.
 
-```bash
-script/fetch_vendor.sh
-```
+---
 
-### Step 2 — copy everything to the server
+## First deployment
 
-The layout the configuration expects:
+What you need: a Linux server with root, a domain pointing at it, and ports 80
+and 443 open (on Alibaba Cloud, in the security group as well as the firewall).
 
-```
-/srv/microbial/
-├── site/                       <- web/            (nginx document root)
-│   └── data/                   <- data/web/
-├── data/
-│   ├── otu_refseqs.fasta       <- data/server/    (deliberately outside site/)
-│   └── atlas_refseqs.fasta     <- data/server/
-├── server/                     <- server/
-└── deploy/                     <- deploy/
-```
-
-The two reference FASTAs, 12 MB and 20 MB, are files no browser ever requests,
-so they stay out of the document root.
+### 1. Copy the files
 
 ```bash
 ssh you@server 'sudo mkdir -p /srv/microbial && sudo chown $USER /srv/microbial'
-rsync -av --delete --exclude=/data web/    you@server:/srv/microbial/site/
-rsync -av --delete data/web/               you@server:/srv/microbial/site/data/
-rsync -av --delete data/server/            you@server:/srv/microbial/data/
-rsync -av --delete server/                 you@server:/srv/microbial/server/
-rsync -av --delete deploy/                 you@server:/srv/microbial/deploy/
+
+rsync -av --delete --exclude=/data web/  you@server:/srv/microbial/site/
+rsync -av --delete data/web/             you@server:/srv/microbial/site/data/
+rsync -av --delete data/server/          you@server:/srv/microbial/data/
+rsync -av --delete server/               you@server:/srv/microbial/server/
+rsync -av --delete deploy/               you@server:/srv/microbial/deploy/
 ```
 
-One source per command: with a trailing slash rsync copies a directory's
-contents, so `server/ deploy/ …:/srv/microbial/` would spill both into the top
-level and `--delete` would then remove `site/` and `data/`.
+The resulting layout:
 
-Both `--delete` targets are build output, which is what makes re-deploying
-idempotent. Never point one at a directory holding anything else.
+```
+/srv/microbial/
+├── site/            ← web/        nginx serves this
+│   └── data/        ← data/web/
+├── data/            ← data/server/  the vsearch databases, outside the web root
+├── server/          ← server/
+└── deploy/          ← deploy/
+```
 
-### Step 3 — run the mapping service
+One `rsync` per source. A trailing slash copies a directory's *contents*, so
+combining sources would spill them into `/srv/microbial/` and `--delete` would
+then erase `site/`.
 
-Pick one. Both bind to `127.0.0.1:8000` only; nginx is the single public entry
-point, and vsearch behind no rate limit is not something to expose.
-
-#### Docker
+### 2. Start the mapping service
 
 ```bash
 sudo apt install -y docker.io docker-compose-v2
-sudo usermod -aG docker "$USER"      # then log out and back in
-cd /srv/microbial
-docker compose -f deploy/docker-compose.yml up -d --build
+sudo usermod -aG docker "$USER"        # then log out and back in
+cd /srv/microbial && docker compose -f deploy/docker-compose.yml up -d --build
+
+curl -s localhost:8000/health          # both databases must report true
 ```
 
-#### systemd, no Docker
+A systemd unit is available instead of Docker; see
+[`deploy/WEB_CONFIG.md`](deploy/WEB_CONFIG.md). Either way the service listens
+on `127.0.0.1:8000` only — nginx is the single public entry point, and vsearch
+without a rate limit is not something to expose.
 
-Needs vsearch, which most distributions do not package. A release binary is
-the quickest route:
+### 3. Install nginx
 
-```bash
-sudo useradd --system --home /srv/microbial --shell /usr/sbin/nologin microbial
-sudo -u microbial python3 -m venv /srv/microbial/venv
-sudo -u microbial /srv/microbial/venv/bin/pip install -r /srv/microbial/server/requirements.txt
-
-sudo apt install -y wget
-sudo wget -O /tmp/vsearch.tar.gz \
-  https://github.com/torognes/vsearch/releases/download/v2.28.1/vsearch-2.28.1-linux-x86_64.tar.gz
-sudo tar -xzf /tmp/vsearch.tar.gz -C /tmp
-sudo install -m 0755 /tmp/vsearch-2.28.1-linux-x86_64/bin/vsearch /usr/local/bin/vsearch
-vsearch --version
-
-sudo install -m 0644 /srv/microbial/deploy/microbial-map.service \
-  /etc/systemd/system/microbial-map.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now microbial-map
-```
-
-Either way, confirm the service can see its database before going further:
-
-```bash
-curl -s localhost:8000/health
-# expect "database_present": true and "atlas_database_present": true — if not,
-# the path or the bind mount is wrong and /map will answer 503
-```
-
-### Step 4 — nginx and TLS
-
-Rate-limit zones cannot be declared inside a `server` block, so add one line to
-the `http` block of `/etc/nginx/nginx.conf`:
+The rate-limit zone has to live in the `http` block, so add one line to
+`/etc/nginx/nginx.conf`:
 
 ```nginx
 limit_req_zone $binary_remote_addr zone=map_limit:10m rate=10r/m;
 ```
 
-The supplied config has an HTTPS block pointing at a certificate that does not
-exist yet, so nginx would refuse to start if you install it now. Two phases,
-with the certificate obtained in between:
+Then install the site config and point it at your domain:
 
 ```bash
-sudo apt install -y nginx certbot
-sudo mkdir -p /var/www/certbot
-
-# Phase 1: HTTP only, just enough for nginx to start and for certbot to answer
-# the ACME challenge. DNS must already resolve to this host.
-sudo tee /etc/nginx/sites-available/microbial-embeddings >/dev/null <<'CONF'
-server {
-    listen 80;
-    server_name your.domain;
-    root /srv/microbial/site;
-    location /.well-known/acme-challenge/ { root /var/www/certbot; }
-    location / { return 404; }
-}
-CONF
+sudo apt install -y nginx
+sudo cp /srv/microbial/deploy/nginx-http.conf \
+        /etc/nginx/sites-available/microbial-embeddings
+sudo sed -i 's/server_name _;/server_name your.domain;/' \
+        /etc/nginx/sites-available/microbial-embeddings
 sudo ln -sf /etc/nginx/sites-available/microbial-embeddings \
-  /etc/nginx/sites-enabled/microbial-embeddings
+            /etc/nginx/sites-enabled/microbial-embeddings
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
-
-sudo certbot certonly --webroot -w /var/www/certbot -d your.domain
-
-# Phase 2: the real config, which can start because the certificate now exists.
-sudo cp /srv/microbial/deploy/nginx.conf \
-  /etc/nginx/sites-available/microbial-embeddings
-sudo sed -i 's|SITE_ROOT|/srv/microbial/site|' \
-  /etc/nginx/sites-available/microbial-embeddings
-sudo sed -i 's|microbiome.example.org|your.domain|g' \
-  /etc/nginx/sites-available/microbial-embeddings
-sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Certbot installed a renewal timer when it issued the certificate; confirm it
-with `systemctl list-timers | grep certbot`. Renewal uses the webroot path
-above, which the deployed config keeps serving.
+The site is now live over HTTP. `deploy/nginx.conf` is the same thing with a
+TLS block written out by hand; you do not need it if you use certbot below.
 
-Open the firewall, leaving 8000 closed:
+### 4. Get a certificate
 
 ```bash
-sudo ufw allow 22,80,443/tcp && sudo ufw enable
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your.domain --redirect --agree-tos -m you@example.org
 ```
 
-### Step 5 — verify the deployment
-
-Each check catches a different class of mistake. Run them in order.
+This validates over HTTP-01, writes the TLS server block into the config you
+just installed, adds the HTTP→HTTPS redirect, and installs a renewal timer.
+Confirm renewal works:
 
 ```bash
-# 1. The service is up and can see its database.
+sudo certbot renew --dry-run
+```
+
+### 5. Check the deployment
+
+Each command catches a different class of mistake.
+
+```bash
+# The service is up and can see its databases.
 curl -s https://your.domain/health | python3 -m json.tool
 
-# 2. Every file the manifest lists is actually being served.
+# Every file the manifest promises is actually served.
 curl -s https://your.domain/data/manifest.json \
   | python3 -c "import json,sys; [print(f['file']) for f in json.load(sys.stdin)['files']]" \
   | while read -r f; do
@@ -248,134 +237,124 @@ curl -s https://your.domain/data/manifest.json \
       [ "$code" = 200 ] || echo "MISSING $f ($code)"
     done
 
-# 3. Compression is on. otus.json is 16 MB raw and should arrive as ~1.1 MB.
+# Compression is on: otus.json is 16 MB raw and should arrive near 1 MB.
 curl -s -H 'Accept-Encoding: gzip' -o /dev/null -w '%{size_download}\n' \
   https://your.domain/data/otus.json
 
-# 4. The WebAssembly gets the MIME type onnxruntime-web requires. Anything but
-#    application/wasm leaves the dysbiosis page dead with no useful error.
-curl -sI https://your.domain/assets/vendor/ort/ort-wasm-simd-threaded.wasm \
-  | grep -i content-type
+# All three WebAssembly builds are present and typed application/wasm. The
+# non-SIMD one is the build Safari before 16.4 uses; a 404 here leaves the
+# dysbiosis page dead with "no available backend found".
+for f in ort-wasm.wasm ort-wasm-simd.wasm ort-wasm-simd-threaded.wasm; do
+  curl -sI "https://your.domain/assets/vendor/ort/$f" | head -1
+done
 
-# 5. /map round-trips: sequences taken out of the database must come back as
-#    themselves, not merely as something.
+# /map round-trips: sequences taken from the database must come back as
+# themselves, not merely as something.
 head -c 40000 /srv/microbial/data/otu_refseqs.fasta > /tmp/probe.fasta
 curl -s -F "rep_seqs=@/tmp/probe.fasta" https://your.domain/map | python3 -c "
 import json, sys
-payload = json.load(sys.stdin)
-print(payload['mapped'], 'of', payload['total'], 'mapped')
-bad = [(q, s) for q, s in payload['mapping'].items() if q != s]
-assert payload['mapped'] == payload['total'] and not bad, bad[:3]
-print('every sequence mapped back to itself')"
-
-# 6. Bad input is rejected with 4xx, not 5xx.
-printf 'not a fasta\n' > /tmp/bad.txt
-curl -s -o /dev/null -w '%{http_code}\n' -F "rep_seqs=@/tmp/bad.txt" \
-  https://your.domain/map            # expect 400
+p = json.load(sys.stdin)
+bad = [(q, s) for q, s in p['mapping'].items() if q != s]
+assert p['mapped'] == p['total'] and not bad, bad[:3]
+print(p['mapped'], 'of', p['total'], 'mapped, each to itself')"
 ```
 
-Then walk the golden path by hand:
-
-1. `/atlas` draws 14,093 points; the colour-by selector changes them; searching
-   a genus fills the card beside the map; pasting a line of a reference
-   sequence from `atlas_refseqs.fasta` (300 bases or so) opens that OTU's card.
-2. On a card, "Show the labelled distribution" draws two groups of dots and a
-   marker, and a trait with AUC below 0.65 sits folded at the bottom.
-3. `/dysbiosis` → *Run an example sample* → a percentile appears with the
-   cohort distribution under it, and a contributing taxon links into `/atlas`.
-4. The same page with a real rep-seqs FASTA plus counts goes through `/map` and
-   produces a score. A mapping rate near zero means the sequences are not SILVA
-   138.2 97% OTU reps, so the sample is not comparable to the cohort.
-
-### Re-deploying
-
-```bash
-git pull
-script/check_vendor.sh           # after a pull: the wasm files are not in git
-rsync -av --delete --exclude=/data web/  server:/srv/microbial/site/
-rsync -av --delete data/web/     server:/srv/microbial/site/data/
-# only when the model, the vocabulary or the atlas changed:
-rsync -av --delete data/server/  server:/srv/microbial/data/
-# only when server/ changed; then restart the service (or rebuild the container):
-rsync -av --delete server/       server:/srv/microbial/server/
-```
-
-`ort.min.js` is committed but the two `.wasm` files beside it are not, so a
-pull can leave a new loader next to the previous release's wasm — onnxruntime
-then fails in the browser without ever mentioning a version.
-`script/check_vendor.sh` compares both against the pin and says so.
-
-Browser assets are cached for a month, so after changing anything under
-`web/assets/` either rename the file or lower `max-age` in `nginx.conf` — the
-old copies will otherwise be served from visitors' caches.
-
-Nothing on the server is stateful. There is no database, no uploads directory
-and no session state; `/map` writes a temporary file, runs vsearch and removes
-it before answering. A rebuild from scratch is one `rsync`.
+Then click through it once: search the atlas and open a card, click a point on
+the map, run a dysbiosis example, and upload the two example files from
+`/download/`.
 
 ---
 
 ## Local development
 
 ```bash
-# The symlink puts the built data at /data/ without copying it.
-ln -sfn ../data/web web/data
+ln -sfn ../data/web web/data        # serves the built data at /data/
 cd web && python3 -m http.server 8080
+```
 
-# The mapping service, needed only for the rep-seqs route.
+`web/data` is a symlink and is deliberately not committed: `rsync --delete`
+would otherwise carry it to the server and replace the real data directory
+with a link.
+
+The `/map` endpoint is needed only for the sequence routes:
+
+```bash
 cd server
 OTU_REFSEQS=../data/server/otu_refseqs.fasta \
+ATLAS_REFSEQS=../data/server/atlas_refseqs.fasta \
 VSEARCH_BINARY=/path/to/vsearch \
 python -m uvicorn app.main:app --port 8000
 ```
 
-`web/data` is not committed. `rsync --delete` would carry the symlink to the
-server and replace the real data directory with it.
-
-## Rebuilding the data
-
-`data/web/` is build output, produced by the steps in Step 1. What each script
-writes, and why the order matters, is in
-[`script/web_export/README.md`](script/web_export/README.md).
+---
 
 ## Tests
 
 ```bash
-node tests/js/preprocess.test.mjs          # the browser path against Python
-node tests/js/table.test.mjs               # the count-table reader
-cd server && python -m pytest tests -v     # the endpoint's limits and mapping
+cd tests/js && npm test             # four browser-code suites
+cd server && python -m pytest tests -v
 ```
 
-The first is the one that matters. The site re-implements the paper's
-preprocessing in JavaScript, and a mistake there produces a plausible wrong
-number rather than an error. The second covers the shapes count tables
-actually arrive in — the banner `biom convert --to-tsv` writes, a table
-transposed in a spreadsheet, a row longer than its header — because the
-parser is the first thing a visitor's file meets and a TypeError from inside
-it is not something they can act on. See
-[`tests/js/README.md`](tests/js/README.md) for what is asserted and the one
-place the two languages legitimately differ.
+What they protect, in order of how much it would hurt to lose:
 
-## Two numbers worth knowing before reading the code
+- **`preprocess.test.mjs`** — the site re-implements the paper's preprocessing
+  in JavaScript. A mistake there produces a plausible wrong score rather than
+  an error, so this checks it against Python on fixture samples.
+- **`table.test.mjs`** — the shapes count tables actually arrive in: the banner
+  `biom convert` writes, a table transposed in a spreadsheet, a row longer than
+  its header. The parser is the first thing a visitor's file meets.
+- **`traits.test.mjs`** — that each trait's probability block lines up with the
+  OTUs the card reads it for. A misaligned read draws a plausible plot from
+  another trait's numbers, which is how an earlier offset bug went unnoticed.
+- **`scatter.test.mjs`** — that a click on the map selects the point drawn
+  under the cursor, at several zoom levels and canvas shapes.
 
-**The model knows 8,850 OTUs, not 14,093.** The atlas covers all 14,093
-embedded OTUs. The classifier's vocabulary is a different 14,019 ids, of which
-5,171 have no trained embedding, and only 8,850 have both a vector and a
-sequence. Those are the ones `/map` can return and the ones that carry
-information.
+---
 
-**The graded AUC is 0.6383, not 0.7976.** The deployed model is an average of
-thirteen leave-one-disease-out folds. Twelve of the thirteen saw any given
-reference sample's disease during training, so the ensemble separates the
-reference cohort with an AUC of 0.80 — a number that says nothing about a
-disease it has not seen. The honest estimate is each sample scored by the one
-fold that held its disease out: 0.6383, which is what the site quotes and what
-`metrics.json` records as `lodo_auc`. `reference_auc` is kept beside it, with a
-note saying not to use it.
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Dysbiosis page: "no available backend found" | A `.wasm` file is missing, most often the non-SIMD build Safari < 16.4 needs | `script/fetch_vendor.sh`, then rsync `web/` |
+| Dysbiosis page: "the inference runtime could not be loaded" | `ort.min.js` did not load: a blocked request, or a redeploy caught mid-flight | Reload; if it persists, check the file is served |
+| An edit to CSS or JS does not appear | The browser is holding the old copy | Bump the `?v=` number, then hard-reload (Ctrl+Shift+R) |
+| `/map` answers 503 | The service cannot see its FASTA databases | `curl localhost:8000/health`, check the paths and the bind mount |
+| `/map` answers 429 | The rate limit: 10 requests per minute per IP | Expected under load; raise `rate=` in `nginx.conf` if it is not |
+| nginx will not start after a config change | Usually `limit_req_zone` missing from the `http` block | `sudo nginx -t` names the line |
+| The atlas search finds nothing for a species | Only 1,245 of 14,093 OTUs carry a species name in SILVA | Search the genus instead |
+
+---
+
+## Three things to know before reading the code
+
+**The model knows 8,850 OTUs, not 14,093.** The atlas covers all 14,093 OTUs
+that have an embedding. The classifier's vocabulary is a different set of
+14,019 ids, of which only 8,850 have a trained embedding. The rest carry no
+information for the model, and the dysbiosis page does not list them among the
+contributing taxa.
+
+**Quote AUC 0.64, not 0.80.** The deployed model averages thirteen
+leave-one-disease-out folds. Twelve of the thirteen saw any given reference
+sample's disease during training, so the ensemble separates the reference
+cohort at 0.7976 — a number that says nothing about an unseen disease.
+`metrics.json` records it as `reference_auc` with a note not to use it. The
+honest estimate is `lodo_auc`, 0.6383, which is what the site quotes.
+
+**Traitar labels are not measurements.** The trait classifiers are trained on
+Traitar calls, and Traitar itself infers phenotypes from gene content. So a
+trait AUC says how well the embedding reproduces Traitar, not how well it
+reproduces an experiment. BacDive values, where they exist, are the only
+measured ones, and the cards label all three cases.
+
+---
 
 ## Further reading
 
-- [`deploy/WEB_CONFIG.md`](deploy/WEB_CONFIG.md) — the same deployment in more
-  depth, plus operations, known limits and failure modes.
+- [`deploy/WEB_CONFIG.md`](deploy/WEB_CONFIG.md) — the nginx config line by
+  line, the systemd alternative, operational limits and failure modes.
 - [`script/web_export/README.md`](script/web_export/README.md) — the build
-  pipeline and the two things in it that are easy to get silently wrong.
+  pipeline, and the two things in it that fail silently.
+- [`tests/js/README.md`](tests/js/README.md) — what the browser tests assert,
+  and the one place Python and JavaScript legitimately differ.
+- [`web_design.md`](web_design.md) — design tokens, typography and the rules
+  the pages follow.
