@@ -150,7 +150,10 @@
           annotations as labels. Performance is estimated by
           leave-one-phylum-out cross-validation, in which all members of the
           test phylum are excluded from training. This is stricter than random
-          splitting, and the resulting AUC is shown next to every prediction.
+          splitting, and it is the appropriate test here because most OTUs with
+          a prediction are uncultured and lie outside the training
+          distribution. A predicted trait is an inference rather than a
+          measurement, and the AUC earned on that test is shown beside it.
         </p>
         <p>
           <strong>Sequence search.</strong> Pasted or uploaded sequences are

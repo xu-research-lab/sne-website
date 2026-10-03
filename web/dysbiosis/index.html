@@ -143,7 +143,10 @@
           close to the performance the paper reports; both figures are held-out
           estimates. Samples from conditions not represented in the
           cohort are likely to receive scores closer to the middle of the
-          distribution.
+          distribution. When reporting how this score generalizes, quote the
+          leave-one-disease-out AUC of 0.64; the AUC of the deployed ensemble
+          measured on the cohort it was trained on is not a generalization
+          estimate and should not be quoted as one.
         </p>
         <p>
           The score is derived from a single sample using a single model.

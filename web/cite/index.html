@@ -89,30 +89,6 @@
     </div>
   </section>
 
-  <section class="mt-32">
-    <h2>Notes on reporting results</h2>
-    <div class="note mt-12">
-      <p>
-        Trait values in the atlas are predictions, not measurements, and each
-        is reported with its cross-validated AUC. The AUC is estimated by
-        leave-one-phylum-out cross-validation, in which the model is evaluated
-        on a phylum excluded from training. This is stricter than a random
-        split and is appropriate here, because most predicted OTUs are
-        uncultured and lie outside the training distribution.
-      </p>
-      <p>
-        The dysbiosis score is a percentile within a reference cohort, not a
-        probability. On a disease outside the 13 in the cohort the AUC is 0.64,
-        against 0.67 for the pooled leave-one-disease-out model reported in the
-        paper on the same cohort; both are held-out estimates. When reporting
-        generalization to new diseases, please use the leave-one-disease-out
-        AUC (0.64). The AUC of the deployed ensemble measured on the cohort it
-        was trained on is not a generalization estimate and should not be
-        quoted as one.
-      </p>
-    </div>
-  </section>
-
 </main>
 
 <footer class="site-footer">
