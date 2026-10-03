@@ -222,7 +222,7 @@ function renderBandFor(trait, record, data) {
     ctrlLabel: otherValues.join(' / '),
     caseLabel: meta.value_labels[queryValue] || queryValue,
     youLabel: measured ? `${record.id} (BacDive measurement)`
-      : labelled ? `${record.id} (genome annotation)` : `${record.id} (predicted)`,
+      : labelled ? `${record.id} (Traitar, from genome)` : `${record.id} (SNE prediction)`,
   };
 }
 
@@ -258,16 +258,17 @@ function renderTrait(trait, record, data, thresholds) {
   const value = element('span', 'trait__value', valueText);
   if (curated || labelled) {
     const badge = element('span', 'badge',
-      curated ? 'BacDive measurement' : 'Traitar genome annotation');
+      curated ? 'BacDive, measured' : 'Traitar, from genome');
     badge.style.marginLeft = '8px';
     value.appendChild(badge);
   }
   head.appendChild(value);
   row.appendChild(head);
 
-  // A value a database supplies -- a BacDive measurement or a Traitar genome
-  // annotation -- is shown as that and nothing more: no probability, AUC or
-  // distribution, all of which describe the SNE predictor, not the database.
+  // A value that does not come from the SNE model -- a BacDive measurement or
+  // a Traitar call on this OTU's own genome -- is shown as that and nothing
+  // more: the probability, AUC and distribution all describe the SNE
+  // predictor, and attaching them here would read as its evidence.
   if (curated || labelled) return row;
 
   const line = element('div', 'trait__row');
@@ -325,8 +326,8 @@ export function renderCard(container, index, data) {
   const provenance = element('p', 'small provenance');
   provenance.style.margin = '0 0 16px';
   provenance.textContent = record.genome_linked
-    ? 'Linked to a representative genome; trait values below are genome-based annotations.'
-    : 'Uncultured: no representative genome is available, so all trait values below are predicted from the embedding.';
+    ? 'Linked to a representative genome: the traits below marked Traitar were called from that genome, not predicted from the embedding.'
+    : 'Uncultured: no representative genome is available, so every trait below is predicted from the embedding.';
   fragment.appendChild(provenance);
 
   // Neighbours and traits side by side when the card is wide enough.
@@ -355,13 +356,20 @@ export function renderCard(container, index, data) {
     else hidden.push(trait);
   }
 
-  if (data.traits.order.some((trait) => !annotated(trait))) {
-    const caveat = element('p', 'small muted');
-    caveat.textContent = 'Predicted from SNEs, not measured. The values '
-      + 'describe the ecological role of a taxon in the gut community, which may '
-      + 'differ from its physiology in pure culture.';
-    traitBlock.appendChild(caveat);
-  }
+  // Three kinds of evidence sit in this block and only one of them is a
+  // measurement. Saying which is which, every time, is the difference between
+  // a trait table and a claim.
+  const legend = element('p', 'small muted');
+  legend.innerHTML = 'Each value states where it comes from. '
+    + '<b>BacDive</b>: measured in culture. '
+    + '<b>Traitar</b>: called by Traitar from this OTU\'s representative '
+    + 'genome, which is an inference from gene content rather than an '
+    + 'observation. Everything else: predicted by this site\'s model from the '
+    + 'social niche embedding, with the probability and the '
+    + 'leave-one-phylum-out AUC of that prediction beside it. A predicted '
+    + 'value describes the ecological role a taxon plays in the gut, which may '
+    + 'differ from its physiology in pure culture.';
+  traitBlock.appendChild(legend);
 
   for (const trait of shown) {
     traitBlock.appendChild(renderTrait(trait, record, data, thresholds));

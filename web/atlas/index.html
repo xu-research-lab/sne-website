@@ -145,8 +145,12 @@
         </p>
         <p>
           <strong>Trait prediction.</strong> Traits are predicted by random
-          forest classifiers trained on SNE vectors, with Traitar genome
-          annotations as labels. Performance is estimated by
+          forest classifiers trained on SNE vectors, with Traitar calls as
+          labels. Traitar itself infers a phenotype from the gene content of a
+          genome, so the labels are not laboratory measurements and the AUCs
+          below state how well the embedding reproduces Traitar, not how well
+          it reproduces an experiment. Where BacDive holds a measured value for
+          an OTU, the card shows that instead, marked as measured. Performance is estimated by
           leave-one-phylum-out cross-validation, in which all members of the
           test phylum are excluded from training. This is stricter than random
           splitting, and it is the appropriate test here because most OTUs with
@@ -219,7 +223,7 @@
   </div>
 </footer>
 
-<script type="module" src="/assets/js/atlas.js?v=8"></script>
+<script type="module" src="/assets/js/atlas.js?v=9"></script>
 
 </body>
 </html>
