@@ -26,7 +26,6 @@
       <a href="/download/" aria-current="page">Download</a>
     </nav>
     <nav class="site-nav site-nav--utility" aria-label="Project">
-      <a href="/cite/">Cite</a>
       <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a>
       <a href="https://xulab.pages.dev/en/">Xu lab</a>
     </nav>
@@ -48,6 +47,28 @@
     <h2>Files</h2>
     <div id="files-table" class="mt-12">
       <p class="muted">Loading the file list…</p>
+    </div>
+  </section>
+
+  <section class="mt-32" id="version">
+    <h2>Version</h2>
+    <div class="card mt-12">
+      <table>
+        <tbody>
+          <tr><td>Model</td><td class="mono" id="model-version">—</td></tr>
+          <tr><td>Reference cohort</td><td class="mono" id="cohort">—</td></tr>
+          <tr><td>Leave-one-disease-out AUC</td><td class="mono" id="lodo">—</td></tr>
+          <tr><td>Vocabulary</td><td class="mono" id="vocab-size">—</td></tr>
+          <tr><td>OTUs with a trained embedding</td><td class="mono" id="informative">—</td></tr>
+          <tr><td>Maximum input length (OTUs per sample)</td><td class="mono" id="steps">—</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted mt-12" style="margin-bottom:0">
+        Report these alongside any result taken from this site. Fold
+        checkpoints, per-disease AUCs and the validation AUC used to select each
+        fold are listed in
+        <a href="/data/metrics.json" class="mono">metrics.json</a>.
+      </p>
     </div>
   </section>
 
@@ -132,7 +153,7 @@
         </svg>
       </a>
       <p>Social niche embeddings of the human gut microbiome.</p>
-      <p>&copy; 2026 SNEs &middot; <a href="/cite/">Cite</a> &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
+      <p>&copy; 2026 SNEs &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
     </div>
     <div>
       <h2>Resources</h2>
@@ -153,7 +174,7 @@
     <div>
       <h2>Information</h2>
       <ul>
-        <li><a href="/cite/">Cite SNEs</a></li>
+        <li><a href="/#cite">How to cite</a></li>
         <li><a href="/#scope">Scope and limitations</a></li>
         <li><a href="https://xulab.pages.dev/en/">Xu lab</a></li>
       </ul>
@@ -183,6 +204,16 @@ function human(bytes) {
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} kB`;
   return `${(bytes / 1048576).toFixed(2)} MB`;
 }
+
+const metrics = await (await fetch("/data/metrics.json", { cache: "no-cache" })).json();
+document.getElementById("model-version").textContent =
+  "13-fold ensemble (one model per held-out disease)";
+document.getElementById("cohort").textContent =
+  `${metrics.n_reference} samples (${metrics.n_controls} controls, ${metrics.n_cases} cases)`;
+document.getElementById("lodo").textContent = metrics.lodo_auc.toFixed(4);
+document.getElementById("vocab-size").textContent = `${metrics.n_tokens} tokens`;
+document.getElementById("informative").textContent = metrics.n_informative_otus;
+document.getElementById("steps").textContent = metrics.num_steps;
 
 const manifest = await (await fetch("/data/manifest.json", { cache: "no-cache" })).json();
 
