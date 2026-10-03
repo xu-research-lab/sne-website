@@ -319,7 +319,7 @@ What they protect, in order of how much it would hurt to lose:
 | Dysbiosis page: "the inference runtime could not be loaded" | `ort.min.js` did not load: a blocked request, or a redeploy caught mid-flight | Reload; if it persists, check the file is served |
 | An edit to CSS or JS does not appear | The browser is holding the old copy | Bump the `?v=` number, then hard-reload (Ctrl+Shift+R) |
 | `/map` answers 503 | The service cannot see its FASTA databases | `curl localhost:8000/health`, check the paths and the bind mount |
-| `/map` answers 429 | The rate limit: 10 requests per minute per IP | Expected under load; raise `rate=` in `nginx.conf` if it is not |
+| `/map` answers 429 | The rate limit: 10 requests per minute per IP | Expected under load; otherwise raise `rate=` in the `limit_req_zone` line in `/etc/nginx/nginx.conf` |
 | nginx will not start after a config change | Usually `limit_req_zone` missing from the `http` block | `sudo nginx -t` names the line |
 | The atlas search finds nothing for a species | Only 1,245 of 14,093 OTUs carry a species name in SILVA | Search the genus instead |
 

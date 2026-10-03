@@ -1,13 +1,12 @@
-# Deployment plan
+# Server reference
 
-Everything needed to put this site on a small public server, and the checks
-that tell you it went correctly.
+How the server is put together and why, for when something misbehaves or needs
+changing. **The steps for deploying and updating are in the
+[README](../README.md); this document does not repeat them.**
 
 ---
 
-## 1. What is being deployed
-
-Two pieces, and only one of them is a running service.
+## What runs, and what does not
 
 ```
                     visitor's browser
@@ -16,386 +15,201 @@ Two pieces, and only one of them is a running service.
                     └─ all rendering
                              │
    nginx (host) ─────────────┼──────────────────────────────────────
-   ├─ /, /atlas, /dysbiosis, /download, /cite      static files
-   ├─ /data/*                                      static files
-   └─ /map ──────────────► map service (localhost:8000)
-                           └─ vsearch against data/otu_refseqs.fasta,
-                              or data/atlas_refseqs.fasta for ?db=atlas
+   ├─ /, /atlas/, /dysbiosis/, /download/      static files
+   ├─ /data/*                                  static files
+   └─ /map, /health ───────► map service (127.0.0.1:8000)
+                             └─ vsearch against otu_refseqs.fasta, or
+                                atlas_refseqs.fasta for ?db=atlas
 ```
 
 The split is what makes a 1-core host enough. The browser pays for the neural
-network — 4.7 MB downloaded once, then cached — and the server only does the
-one thing a browser cannot: aligning a visitor's sequences against the
-reference OTUs with vsearch. A few hundred sequences take well under a second.
+network — 4.7 MB downloaded once, then cached — and the server does the one
+thing a browser cannot: align a visitor's sequences against the reference OTUs.
+A few hundred sequences take well under a second.
 
-The reference database holds **8,850 sequences**, not the 14,093 the embedding
-file has. The model's vocabulary is a different 14,019 ids that overlap the
-embedding in 8,850 places, and only those 8,850 have both a sequence and a
-trained vector. Mapping to anything else would produce an OTU the model scores
-as absent, which is a silently wrong answer rather than an error.
+**The dysbiosis database holds 8,850 sequences, not 14,093.** The model's
+vocabulary is 14,019 ids, and only 8,850 of them have both a sequence and a
+trained vector. Mapping a read to anything outside that set would hand the
+model an OTU it scores as absent: a silently wrong answer rather than an error.
+The atlas database is separate and does cover all 14,093, because the atlas
+only has to find a card to open.
 
 ---
 
-## 2. Sizing
+## Sizing
 
 | Resource | Minimum | Notes |
 |---|---|---|
-| vCPU | 1 | vsearch is single-threaded and the container is capped at one core |
+| vCPU | 1 | vsearch is single-threaded, and the container is capped at one core |
 | RAM | 2 GB | nginx ~50 MB, map service ~150 MB under load, page cache the rest |
-| Disk | 20 GB | site 45 MB, reference database 13 MB, OS and logs the rest |
-| Bandwidth | — | see below |
+| Disk | 20 GB | site 84 MB, reference databases 30 MB, OS and logs the rest |
 
-Bandwidth, per visitor who uses a page:
+Bandwidth per visitor, first visit; everything is cached afterwards:
 
-| Page | First visit | Repeat |
+| Page | Transferred |
+|---|---|
+| Home, download | < 100 kB |
+| Atlas | ~4.8 MB gzipped |
+| Dysbiosis | ~9.2 MB gzipped, of which 3.0 MB is the ONNX Runtime WebAssembly |
+
+The dysbiosis page is heavy, deliberately. The alternative is running inference
+on the server, which multiplies the cores needed by the number of people
+visiting at once. The runtime is shared across visitors through the browser
+cache, so its cost is paid once per visitor rather than once per sample.
+Quantising the graph to int8 would take the model from 4.7 MB to roughly
+1.2 MB at some cost in accuracy — a deliberate change, with the regression
+tests re-run, not a default.
+
+---
+
+## The nginx config
+
+`nginx-http.conf` is the file to install; certbot writes the TLS server block
+into it. `nginx.conf` is the same configuration with TLS written out by hand,
+for a deployment that manages its own certificates. Both expect the site at
+`/srv/microbial/site`.
+
+### One line that cannot live in the file
+
+```nginx
+limit_req_zone $binary_remote_addr zone=map_limit:10m rate=10r/m;
+```
+
+Rate-limit zones are only valid in nginx's `http` block, so this goes in
+`/etc/nginx/nginx.conf`, not in the site config. Without it nginx refuses to
+start, naming the `limit_req` line in the site config.
+
+### What each location does
+
+| Location | Behaviour | Why |
 |---|---|---|
-| Home, download, cite | < 50 kB | cached |
-| Atlas | ~4.8 MB gzipped | cached |
-| Dysbiosis | ~9.2 MB gzipped — ~19 MB uncompressed, 10.9 MB of it the ONNX Runtime WebAssembly | cached |
+| `/assets/` | `expires epoch` | Filenames are not content-hashed, so a long cache kept visitors on old CSS and JS for a month after every deploy. Cache busting is the `?v=` query instead |
+| `/data/` | `expires 7d` | Large, and changes only when the data is rebuilt |
+| `*.wasm` | `expires 30d`, `Content-Type: application/wasm` | onnxruntime instantiates it by streaming, which requires the exact MIME type. Anything else kills the dysbiosis page with no useful error |
+| `/data/download/` | `expires 7d`, plus `Access-Control-Allow-Origin: *` | So the files can be loaded by external tools |
+| `= /map` | proxy to `127.0.0.1:8000`, `limit_req` 10/min burst 5, 429 on refusal, 12 MB body cap | The only endpoint that costs CPU. The service caps uploads at 10 MB itself; nginx's 12 MB leaves room for the multipart envelope |
+| `= /health` | proxy, no rate limit | So a monitor can poll it |
+| `/` and `= /index.html` | `expires -1` | HTML must revalidate, or a deploy is invisible |
+| fonts, images | `expires 30d` | They change with the design, which is rare |
 
-The dysbiosis page is heavy and that is a deliberate trade: the alternative is
-running inference on the server, which multiplies the required cores by
-however many people visit at once. The runtime is shared between all visitors
-through the browser cache, so the cost is paid per visitor once, not per
-sample. If that is unacceptable, quantising the graph to int8 takes the 4.7 MB
-model to roughly 1.2 MB at the cost of a small accuracy change — that is a
-change to make deliberately, with the regression tests re-run, not by default.
-
----
-
-## 3. Building the artefacts
-
-Run once on the machine that has the research data, not on the server. The
-export scripts read the BIOM tables, the fold checkpoints and the embedding
-text files and write everything the site serves.
-
-```bash
-cd sne-website
-
-# A virtual environment with torch, onnx, onnxruntime, biom, h5py, scipy.
-python -m venv --system-site-packages .venv-export
-.venv-export/bin/pip install "onnx==1.15.0" "onnxruntime==1.16.3"
-
-# 1. The atlas arrays. Produces umap.f32.bin, both neighbour lists, otus.json
-#    and meta.json. Run the notebook as written; the web build only reads it.
-jupyter nbconvert --execute script/atlas_export.ipynb
-
-# 2. The dysbiosis model, vocabulary, reference scores and examples.
-#    Verifies itself: it reproduces the training run's pred_test.csv before
-#    writing anything, and checks onnxruntime against PyTorch afterwards.
-.venv-export/bin/python script/web_export/export_dysbiosis.py
-
-# 3. The trait probabilities behind the confidence bands and the BacDive
-#    overrides. Refits the forests with the notebook's own seed.
-.venv-export/bin/python script/web_export/export_traits.py
-
-# 4. Quantised similarities, the download formats, the vsearch database and
-#    the manifest. Run last: it reads what 1-3 wrote and rewrites meta.json.
-.venv-export/bin/python script/web_export/export_assets.py \
-    --site-url https://microbiome.example.org
-```
-
-`--site-url` is the public origin. It goes into the TensorFlow Embedding
-Projector config, so it must match the domain the site is served from.
-
-### What gets copied to the server
-
-```
-web/                        ->  /srv/microbial/site
-data/web/                   ->  /srv/microbial/site/data
-data/server/otu_refseqs.fasta ->  /srv/microbial/data/otu_refseqs.fasta
-data/server/atlas_refseqs.fasta -> /srv/microbial/data/atlas_refseqs.fasta
-server/                     ->  /srv/microbial/server   (for the container build)
-deploy/                     ->  configuration
-```
-
-`web/` is the document root. `data/web/` sits inside it under `/data/`. The
-reference FASTAs deliberately sit outside it — 12 MB and 20 MB that no browser
-ever needs.
-
-```bash
-rsync -av --delete web/ data/web/  server:  # see the runbook below
-```
+`add_header` is inherited only by locations that declare none of their own.
+That is why every cache lifetime above is written as `expires` rather than
+`add_header Cache-Control`, and why `/data/download/`, which needs a CORS
+header, repeats the three security headers the server block sets.
 
 ---
 
-## 4. Server preparation
+## The map service
 
-Ubuntu 22.04 or 24.04, Debian 12, or any distribution with nginx ≥ 1.18.
+FastAPI in front of vsearch. It binds to `127.0.0.1:8000` only: nginx is the
+single public entry point, and vsearch with no rate limit is not something to
+expose.
 
-```bash
-sudo apt update
-sudo apt install -y nginx certbot python3-certbot-nginx
-```
+| Setting | Value | Where |
+|---|---|---|
+| Upload cap | 10 MB | `MAX_BYTES` in `server/app/main.py` |
+| Sequence cap | 5,000 | `MAX_SEQUENCES` |
+| Identity | 0.97 | `IDENTITY`, matching the OTU definition |
+| vsearch timeout | 120 s | `VSEARCH_TIMEOUT_SECONDS` |
+| Rate limit | 10/min per IP | in nginx, and again in the service |
 
-Then choose one of the two ways to run the map service.
+Three environment variables locate its data: `OTU_REFSEQS`, `ATLAS_REFSEQS` and
+`VSEARCH_BINARY`. They are set in `docker-compose.yml` and in
+`microbial-map.service`; if either path is wrong, `/health` reports
+`database_present: false` and `/map` answers 503.
 
-### Option A — Docker Compose
+### Running it without Docker
 
-```bash
-sudo apt install -y docker.io docker-compose-v2
-sudo usermod -aG docker "$USER"     # then log out and back in
-cd /srv/microbial
-docker compose -f deploy/docker-compose.yml up -d --build
-curl -s localhost:8000/health | python3 -m json.tool
-```
-
-### Option B — systemd, no Docker
-
-Needs vsearch, which most distributions do not package. Conda is the reliable
-source:
+The README uses Docker. The systemd unit is the alternative, and it needs
+vsearch installed system-wide, which most distributions do not package:
 
 ```bash
 sudo useradd --system --home /srv/microbial --shell /usr/sbin/nologin microbial
 sudo -u microbial python3 -m venv /srv/microbial/venv
 sudo -u microbial /srv/microbial/venv/bin/pip install -r /srv/microbial/server/requirements.txt
 
-# vsearch, for the whole system
-sudo apt install -y wget
 sudo wget -O /tmp/vsearch.tar.gz \
   https://github.com/torognes/vsearch/releases/download/v2.28.1/vsearch-2.28.1-linux-x86_64.tar.gz
 sudo tar -xzf /tmp/vsearch.tar.gz -C /tmp
 sudo install -m 0755 /tmp/vsearch-2.28.1-linux-x86_64/bin/vsearch /usr/local/bin/vsearch
-vsearch --version
 
 sudo install -m 0644 /srv/microbial/deploy/microbial-map.service \
   /etc/systemd/system/microbial-map.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now microbial-map
-curl -s localhost:8000/health | python3 -m json.tool
+sudo systemctl daemon-reload && sudo systemctl enable --now microbial-map
+curl -s localhost:8000/health
 ```
-
-Check `/health` says `"database_present": true` and
-`"atlas_database_present": true`. If either does not, the bind mount, the
-`OTU_REFSEQS` path, or (for the atlas, which defaults to the same directory)
-`ATLAS_REFSEQS` is wrong, and `/map` will return 503 for that database.
 
 ---
 
-## 5. nginx and TLS
-
-The provided `nginx.conf` needs one line added to the `http` block of
-`/etc/nginx/nginx.conf`, because rate-limit zones cannot be declared inside a
-server block:
-
-```nginx
-limit_req_zone $binary_remote_addr zone=map_limit:10m rate=10r/m;
-```
-
-The supplied config has an HTTPS block referencing a certificate that does not
-exist on a fresh host, so installing it first makes `nginx -t` fail. Go in two
-phases, with the certificate obtained between them:
-
-```bash
-sudo mkdir -p /var/www/certbot
-
-# Phase 1: HTTP only. Enough for nginx to start and for certbot to answer the
-# ACME challenge. DNS must already point at this host.
-sudo tee /etc/nginx/sites-available/microbial-embeddings >/dev/null <<'CONF'
-server {
-    listen 80;
-    server_name your.domain;
-    root /srv/microbial/site;
-    location /.well-known/acme-challenge/ { root /var/www/certbot; }
-    location / { return 404; }
-}
-CONF
-sudo ln -sf /etc/nginx/sites-available/microbial-embeddings \
-  /etc/nginx/sites-enabled/microbial-embeddings
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-
-sudo certbot certonly --webroot -w /var/www/certbot -d your.domain
-
-# Phase 2: the real config, which now has a certificate to point at.
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/microbial-embeddings
-sudo sed -i 's|SITE_ROOT|/srv/microbial/site|' \
-  /etc/nginx/sites-available/microbial-embeddings
-sudo sed -i 's|microbiome.example.org|your.domain|g' \
-  /etc/nginx/sites-available/microbial-embeddings
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-Certbot installed a renewal timer when it issued the certificate. Check it:
-`sudo systemctl list-timers | grep certbot`. Renewal reuses the webroot path
-above, which the deployed config keeps serving.
-
-One header is load-bearing and easy to miss: `.wasm` must be served as
-`application/wasm`, because onnxruntime-web instantiates it with the streaming
-API, which refuses anything else. The symptom is a dysbiosis page that does
-nothing and logs nothing useful. The config handles it in its own location
-block rather than in a `types` block, which would replace the inherited MIME
-map instead of extending it.
-
-### Firewall
-
-```bash
-sudo ufw allow 22,80,443/tcp
-sudo ufw enable
-```
-
-Port 8000 is bound to 127.0.0.1 by both deployment options and must stay that
-way — vsearch behind no rate limit and no TLS is not something to expose.
-
----
-
-## 6. Verifying the deployment
-
-Run these in order. Each one catches a different class of mistake.
-
-```bash
-# 1. The service is up and can see its database.
-curl -s https://your.domain/health | python3 -m json.tool
-#    expect: "database_present": true
-
-# 2. The static site is complete: every file in the manifest resolves.
-curl -s https://your.domain/data/manifest.json \
-  | python3 -c "import json,sys; [print(f['file']) for f in json.load(sys.stdin)['files']]" \
-  | while read -r f; do
-      code=$(curl -s -o /dev/null -w '%{http_code}' "https://your.domain/data/$f")
-      [ "$code" = 200 ] || echo "MISSING $f ($code)"
-    done
-
-# 3. Compression is on where it matters. otus.json should be ~1.1 MB.
-curl -s -H 'Accept-Encoding: gzip' -o /dev/null -w '%{size_download}\n' \
-  https://your.domain/data/otus.json
-
-# 4. /map round-trips: sequences taken from the database must come back as
-#    themselves, not merely as something.
-head -c 40000 data/server/otu_refseqs.fasta > /tmp/probe.fasta
-curl -s -F "rep_seqs=@/tmp/probe.fasta" https://your.domain/map \
-  | python3 -c "
-import json, sys
-payload = json.load(sys.stdin)
-print(payload['mapped'], 'of', payload['total'])
-bad = [(q, s) for q, s in payload['mapping'].items() if q != s]
-print('identity mismatches:', len(bad), bad[:3])
-assert payload['mapped'] == payload['total'] and not bad"
-
-# 5. Errors are 4xx, not 5xx.
-printf 'not a fasta\n' > /tmp/bad.txt
-curl -s -o /dev/null -w '%{http_code}\n' \
-  -F "rep_seqs=@/tmp/bad.txt" https://your.domain/map     # expect 400
-```
-
-Then open the site and walk the golden path by hand:
-
-1. `/atlas` loads, the scatter draws 14,093 points, the colour-by selector
-   changes them, and searching a genus fills the card. Pasting a 16S sequence
-   goes through `/map?db=atlas`: one match opens its card, several equally
-   close OTUs are listed instead.
-2. On a card, "Show the labelled distribution" draws two groups of dots and a
-   marker, and a trait with AUC below 0.65 sits folded at the bottom.
-3. `/dysbiosis` → *Run an example sample* → a percentile appears with the
-   cohort distribution under it, and a contributing taxon links into `/atlas`.
-4. The same page with a real rep-seqs FASTA plus counts goes through `/map`
-   and produces a score. The mapping line should report a plausible fraction
-   of sequences mapped; if it is near zero, the sequences are not SILVA 138.2
-   97% OTU reps and the sample is not comparable to the cohort.
-
----
-
-## 7. The regression tests
-
-These run on the build machine, not the server, and they are the reason the
-numbers on the page can be trusted.
-
-```bash
-# The Python pipeline reproduces the training run, and the exported ONNX
-# reproduces the Python. Both are asserted inside the export itself.
-.venv-export/bin/python script/web_export/export_dysbiosis.py
-
-# The browser's preprocessing against Python's, over the whole reference
-# cohort. This is the test that catches a mis-ported rank normalization.
-node tests/js/preprocess.test.mjs
-
-# The endpoint's limits and its round trip.
-cd server && python -m pytest tests -v
-```
-
-The design document's requirement was a difference below 1e-4 between the
-Python pipeline and the browser path. See `tests/js/README.md` for what was
-measured and why the tolerance is set where it is.
-
----
-
-## 8. Operations
-
-### Updating the site
-
-```bash
-cd sne-website
-git pull
-script/check_vendor.sh          # the wasm files are fetched, not committed
-rsync -av --delete --exclude=/data web/ server:/srv/microbial/site/
-rsync -av --delete data/web/ server:/srv/microbial/site/data/
-sudo systemctl reload nginx     # only needed if the config changed
-```
-
-`script/check_vendor.sh` exists because `web/assets/vendor/ort/` holds a
-committed `ort.min.js` next to two `.wasm` files that `fetch_vendor.sh`
-fetches. A pull replaces the loader and leaves the wasm behind, and
-onnxruntime-web reports the mismatch in the browser without a version in the
-message; the script compares all four files against the pins and exits
-non-zero when any is stale.
-
-The rsync `--delete` is safe here because both directories are build output.
-Never point it at `data/server/`.
-
-### Rebuilding the reference database
-
-Only needed if the vocabulary or the atlas OTUs change:
-
-```bash
-.venv-export/bin/python script/web_export/export_assets.py
-rsync -av data/server/otu_refseqs.fasta data/server/atlas_refseqs.fasta \
-  server:/srv/microbial/data/
-curl -s localhost:8000/health    # on the server
-```
+## Operations
 
 ### Logs
 
 ```bash
-docker compose -f deploy/docker-compose.yml logs -f map   # Option A
-journalctl -u microbial-map -f                            # Option B
+docker compose -f deploy/docker-compose.yml logs -f map   # Docker
+journalctl -u microbial-map -f                            # systemd
 sudo tail -f /var/log/nginx/access.log
+grep -c ' 429 ' /var/log/nginx/access.log                 # how often the limit bites
 ```
 
-nginx logs are JSON-free by default. To find how `/map` is being used, add
-`log_format` with `$request_time` and `$status`, or count 429s:
-`grep -c ' 429 ' /var/log/nginx/access.log`.
+Docker keeps three 10 MB log files per service; systemd uses the journal's own
+limits. Neither needs rotation set up.
+
+### Rebuilding the reference databases
+
+Only when the vocabulary or the atlas OTUs change:
+
+```bash
+.venv-export/bin/python script/web_export/export_assets.py
+rsync -av data/server/ server:/srv/microbial/data/
+curl -s localhost:8000/health          # on the server, after a restart
+```
+
+Docker reads them through a read-only bind mount, so a restart picks up the new
+files: `docker compose -f deploy/docker-compose.yml restart map`.
+
+### Certificates
+
+certbot installs a renewal timer when it issues the certificate. Check it with
+`systemctl list-timers | grep certbot`, and prove renewal works with
+`sudo certbot renew --dry-run`. Renewal validates over HTTP-01, so port 80 must
+stay open and reachable even after the site moves to HTTPS.
 
 ### Backups
 
-Nothing on the server is stateful. The only thing worth keeping is the build
-output on the lab machine and the git repository. A rebuild from scratch is
-one `rsync` and, at most, one export run.
+Nothing on the server is stateful: no database, no uploads, no sessions. What
+is worth keeping lives on the build machine and in git. Rebuilding the server
+is the README's first-deployment section, start to finish.
 
 ---
 
-## 9. Known limits, and what to tell visitors
+## Known limits, and what not to quietly drop
 
-**8,850 usable OTUs, not 14,093.** The atlas shows all 14,093 embedded OTUs
-because the embedding covers them; the classifier knows 8,850. A sample whose
-community falls mostly outside that set will score with most positions masked,
-and the page reports how many.
+**8,850 usable OTUs, not 14,093.** A sample whose community falls mostly
+outside that set is scored with most positions masked. The result page reports
+how many of a sample's taxa the model could see; that line is the visitor's
+only warning and should not be removed.
 
-**The model was trained across the reference cohort.** Its leave-one-disease-out
-AUC is 0.64, against 0.80 for the cohort it trained on. A sample from a
-condition outside the thirteen will sit closer to the middle than it should.
-The site states this on the result and on `/cite`; do not remove those lines to
-make the number look better.
+**Leave-one-disease-out AUC 0.64.** That is the number for a disease the model
+has not seen, against 0.67 for the pooled leave-one-disease-out model in the
+paper. The ensemble's 0.7976 on the cohort it trained on is *not* a
+generalisation estimate — `metrics.json` carries it as `reference_auc` with a
+note saying so, and the site does not show it.
 
-**The percentile is not a probability.** Nothing on the site should ever say
-"risk", "probability of disease" or "diagnosis" about a sample. The design
-document rules these out, and the pages enforce it in their copy.
+**The percentile is not a probability.** Nothing on the site should say
+"risk", "probability of disease" or "diagnosis" about a sample. The pages
+enforce this in their copy; the dysbiosis page carries the research-use notice.
 
-**HDF5 BIOM files are not read in the browser.** The page says so and
-suggests `biom convert --to-tsv`, or the FASTA route, which the server maps.
-Adding a WebAssembly HDF5 reader would fix it at the cost of another megabyte
-of runtime, which did not look like the right trade for the first version.
+**Trait values have three different origins.** BacDive values are measured;
+Traitar values are called from a genome, which is itself an inference; the rest
+are predicted from the embedding. The card labels each one, and a trait AUC
+says how well the embedding reproduces Traitar, not an experiment.
 
-**The Embedding Projector link needs CORS and a public address.** Its config
-points at this site's `/data/download/*.tsv`. Those files are served with
-`Access-Control-Allow-Origin: *`; if the header is dropped, the Projector shows
-an empty canvas.
+**HDF5 BIOM files cannot be read in the browser.** The page says so and points
+to `biom convert --to-tsv` or the FASTA route. A WebAssembly HDF5 reader would
+fix it at the cost of another megabyte of runtime.
+
+**Browsers without WebAssembly SIMD need their own runtime build.** Safari
+before 16.4, Chrome before 91 and Firefox before 89 fetch `ort-wasm.wasm`
+rather than `ort-wasm-simd.wasm`. All three builds must be deployed;
+`script/check_vendor.sh` verifies they are present and at the pinned version.
