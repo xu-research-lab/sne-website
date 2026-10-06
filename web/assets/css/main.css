@@ -201,16 +201,6 @@ main { padding: 40px 0 64px; }
 }
 .site-footer ul { list-style: none; margin: 0; padding: 0; }
 .site-footer li { margin-bottom: 8px; }
-.site-footer__bottom {
-  max-width: var(--content);
-  margin: 0 auto;
-  padding: 12px 24px 24px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 24px;
-  color: var(--ink-2);
-}
 @media (max-width: 960px) {
   .site-footer__inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .site-footer__brand { grid-column: 1 / -1; }

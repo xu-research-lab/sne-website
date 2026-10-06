@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dysbiosis score — SNEs</title>
-<meta name="description" content="Score a faecal 16S rRNA sample against a reference cohort of 10,276 samples. The model runs in the browser.">
+<meta name="description" content="Score a fecal 16S rRNA sample against a reference cohort of 10,276 samples. The model runs in the browser.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/main.css?v=5">
+<link rel="stylesheet" href="/assets/css/main.css?v=6">
 <script src="/assets/vendor/ort/ort.min.js"></script>
 <script src="/assets/vendor/papaparse/papaparse.min.js"></script>
 </head>
@@ -40,7 +40,7 @@
   <h1>Ecological dysbiosis score</h1>
 
   <p class="lede mt-12">
-    The score ranks a faecal 16S rRNA sample against a reference cohort of
+    The score ranks a fecal 16S rRNA sample against a reference cohort of
     10,276 samples, including controls and cases from 13 diseases. It indicates
     how far the community deviates in the direction the model associates with
     disease. It does not identify a specific disease, estimate a probability,
@@ -68,8 +68,9 @@
         <p class="muted">
           A tab-separated table with SILVA 138.2 OTU identifiers (97% identity)
           as rows, in the form <span class="mono">accession.start.stop</span>,
-          and one column per sample. This format can be exported from QIIME 2
-          and DADA2.
+          and one column per sample, as produced by closed-reference clustering
+          against SILVA 138.2 at 97% identity (for example q2-vsearch in
+          QIIME 2). ASV tables from DADA2 go through the second option.
         </p>
         <p class="small">
           Example file:
@@ -94,11 +95,11 @@
           <a href="/data/examples/rep_seqs_example.fasta" download>rep_seqs_example.fasta</a>
           and
           <a href="/data/examples/asv_table_example.tsv" download>asv_table_example.tsv</a>
-          (the same two samples as 300-bp V4 amplicon sequence variants).
+          (the same two samples as 300-bp amplicon sequence variants spanning V4).
         </p>
         <p>
           <label for="fasta-file">Representative sequences (FASTA)</label><br>
-          <input type="file" id="fasta-file" accept=".fasta,.fa,.fna,.fq">
+          <input type="file" id="fasta-file" accept=".fasta,.fa,.fna">
         </p>
         <p>
           <label for="counts-file">Count table (features in rows, samples in columns)</label><br>
@@ -129,23 +130,16 @@
       <summary>Please read before interpreting the score</summary>
       <div class="stack mt-12">
         <p>
-          The model was trained only on human faecal 16S rRNA data. The score is
+          The model was trained only on human fecal 16S rRNA data. The score is
           not valid for soil, water, oral, skin or vaginal communities, or for
           data other than 16S rRNA amplicon sequencing.
         </p>
         <p>
-          The reference cohort covers 13 diseases, and the model was trained on
-          all of them. For a disease outside those 13 the expected performance
-          is AUC 0.64, measured by leave-one-disease-out validation. The pooled
-          leave-one-disease-out model reported in the paper reaches 0.67 on the
-          same cohort, so the deployed ensemble scores an unseen disease at
-          close to the performance the paper reports; both figures are held-out
-          estimates. Samples from conditions not represented in the
-          cohort are likely to receive scores closer to the middle of the
-          distribution. When reporting how this score generalizes, quote the
-          leave-one-disease-out AUC of 0.64; the AUC of the deployed ensemble
-          measured on the cohort it was trained on is not a generalization
-          estimate and should not be quoted as one.
+          For a disease not in the reference cohort, expect an AUC of about
+          0.64 (leave-one-disease-out). The score's AUC on its own training
+          cohort is not a generalization estimate and should not be quoted.
+          Samples from conditions not represented in the cohort are likely to
+          receive scores closer to the middle of the distribution.
         </p>
       </div>
     </details>
@@ -165,7 +159,7 @@
         </svg>
       </a>
       <p>Social niche embeddings of the human gut microbiome.</p>
-      <p>&copy; 2026 SNEs &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
+      <p>&copy; 2026 Xu lab &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
     </div>
     <div>
       <h2>Resources</h2>
@@ -192,13 +186,9 @@
       </ul>
     </div>
   </div>
-  <div class="site-footer__bottom">
-    <span>SILVA 138.2 &middot; 14,093 OTUs &middot; ~210,000 human faecal samples</span>
-    <span>Manuscript in submission</span>
-  </div>
 </footer>
 
-<script type="module" src="/assets/js/dysbiosis.js?v=7"></script>
+<script type="module" src="/assets/js/dysbiosis.js?v=8"></script>
 
 </body>
 </html>

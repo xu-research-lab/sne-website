@@ -339,8 +339,8 @@ function renderResult(scored) {
   fragment.appendChild(heading);
 
   const note = element('p', 'small muted');
-  note.textContent = 'Attention weights are averaged over folds, heads and '
-    + 'query positions. They describe what the model attends to and do not '
+  note.textContent = 'Attention weights are averaged over folds and query '
+    + 'positions. They describe what the model attends to and do not '
     + 'imply a biological mechanism. OTUs without a pretrained embedding carry '
     + 'no information for the model and are not listed.';
   fragment.appendChild(note);
@@ -428,8 +428,8 @@ async function loadStatics() {
     elements.examples.appendChild(button);
   });
 
-  elements.runNote.textContent = `Vocabulary: ${vocab.ids.length} OTUs, `
-    + `${metrics.n_informative_otus} with a trained embedding.`;
+  elements.runNote.textContent = `Model vocabulary: ${vocab.ids.length} OTUs, `
+    + `${metrics.n_informative_otus} of them with an embedding in the dysbiosis model.`;
 }
 
 /**

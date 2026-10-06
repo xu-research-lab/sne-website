@@ -112,7 +112,9 @@ without naming a version. The script compares both against the pin in
 
 Only when the model, the embeddings, the traits or the taxonomy change. This
 runs on the machine that has the BIOM tables and the fold checkpoints, never on
-the server.
+the server. The checkpoints (`data/healthy_disease_predict/model/`, 2.4 GB) are
+not in git: they are the training run's output, and the site ships only the
+ONNX graph exported from them.
 
 ```bash
 python -m venv --system-site-packages .venv-export
@@ -328,8 +330,9 @@ What they protect, in order of how much it would hurt to lose:
 ## Three things to know before reading the code
 
 **The model knows 8,850 OTUs, not 14,093.** The atlas covers all 14,093 OTUs
-that have an embedding. The classifier's vocabulary is a different set of
-14,019 ids, of which only 8,850 have a trained embedding. The rest carry no
+that have an embedding. The dysbiosis model uses embeddings retrained without
+the disease studies (the paper's Methods), and its vocabulary of 14,019 ids
+has an embedding for only 8,850 of them. The rest carry no
 information for the model, and the dysbiosis page does not list them among the
 contributing taxa.
 

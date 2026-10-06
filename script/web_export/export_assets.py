@@ -6,7 +6,6 @@ things the site serves but the research notebooks have no reason to produce.
 
     nbr_sne_sim.f16.bin     cosine similarity, float16
     sne.f16.bin             the embedding matrix, float16
-    download/*.tsv          vectors and metadata for the TF Projector
     download/*.txt.gz       GloVe text, for gensim (no_header=True)
     download/manifest.json  sizes and checksums for the download page
 
@@ -28,13 +27,8 @@ import gzip
 import hashlib
 import json
 import os
-import sys
 
 import numpy as np
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from web_export.trait_labels import load_taxonomy  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -93,30 +87,8 @@ def write_embedding(script_dir, out_dir):
     download = os.path.join(out_dir, "download")
     os.makedirs(download, exist_ok=True)
 
-    # TensorFlow Embedding Projector: values and metadata, tab separated, and
-    # the config that points at them.
-    with open(os.path.join(download, "projector_vectors.tsv"), "w") as handle:
-        for row in matrix:
-            handle.write("\t".join(f"{v:.6g}" for v in row))
-            handle.write("\n")
-
     return ids, matrix, download
 
-
-def write_projector_metadata(ids, script_dir, path):
-    """One row per OTU: id and the seven SILVA ranks, tab separated."""
-    taxonomy = load_taxonomy(os.path.join(
-        script_dir, "taxmap_slv_ssu_ref_nr_138.2.txt")).reindex(ids)
-    columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
-    with open(path, "w") as handle:
-        handle.write("\t".join(["otu_id"] + columns) + "\n")
-        for otu in ids:
-            row = [otu]
-            for column in columns:
-                value = taxonomy.loc[otu, column[0]]
-                row.append("" if value is None or value != value else str(value))
-            handle.write("\t".join(row) + "\n")
-    return taxonomy
 
 
 def write_glove(ids, matrix, path):
@@ -192,17 +164,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--script-dir", default=os.path.join(REPO, "script"))
     parser.add_argument("--out", default=os.path.join(REPO, "data", "web"))
-    parser.add_argument("--site-url", default=None,
-                        help="public origin, used to build the Projector link")
     args = parser.parse_args()
 
-    # Required rather than defaulted: the origin is written into the manifest
-    # and into `download/projector_config.json`, and Google's server fetches
-    # the two TSVs from it. A placeholder left in those files is a dead link
-    # that nothing else on the site would notice.
-    if not args.site_url or not args.site_url.startswith(("http://", "https://")):
-        parser.error("--site-url is required and must be the public origin, "
-                     "e.g. --site-url https://microbiome.example.org")
 
     meta_path = os.path.join(args.out, "meta.json")
     with open(meta_path) as handle:
@@ -262,22 +225,9 @@ def main():
 
     print("writing the embedding matrix")
     ids, matrix, download = write_embedding(args.script_dir, args.out)
-    taxonomy = write_projector_metadata(
-        ids, args.script_dir, os.path.join(download, "projector_metadata.tsv"))
     write_glove(ids, matrix, os.path.join(download, "sne_vectors.txt.gz"))
     print(f"  {len(ids)} vectors of {matrix.shape[1]} dimensions")
 
-    origin = args.site_url.rstrip("/")
-    config = {
-        "embeddings": [{
-            "tensorName": "SNE — human gut OTUs (14,093 x 100)",
-            "tensorShape": [len(ids), matrix.shape[1]],
-            "tensorPath": f"{origin}/data/download/projector_vectors.tsv",
-            "metadataPath": f"{origin}/data/download/projector_metadata.tsv",
-        }]
-    }
-    with open(os.path.join(download, "projector_config.json"), "w") as handle:
-        json.dump(config, handle, indent=1)
 
     print("writing the vsearch database")
     server_dir = os.path.join(os.path.dirname(args.out.rstrip("/")), "server")
@@ -310,14 +260,10 @@ def main():
     manifest.sort(key=lambda entry: entry["file"])
     with open(os.path.join(args.out, "manifest.json"), "w") as handle:
         json.dump({"files": manifest,
-                   "projector_url": "https://projector.tensorflow.org/?config="
-                                    f"{origin}/data/download/projector_config.json",
                    "note": "Every file here is served from /data/ on this site."},
                   handle, indent=1)
 
     print(f"{len(manifest)} files listed in manifest.json")
-    print(f"Projector: https://projector.tensorflow.org/?config={origin}"
-          f"/data/download/projector_config.json")
 
 
 if __name__ == "__main__":

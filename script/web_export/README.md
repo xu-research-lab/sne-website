@@ -14,7 +14,7 @@ fold checkpoints, the embedding text files — and writes static files into
 #      data/silva_tree/SSURefNR99_1200_slv_138_2_subset.tre
 #      script/trait_predcit.csv, script/bacDive.csv, script/agg_bac.csv
 #      data/otu_seq/feces_seq_16S_silva.fasta
-#      data/healthy_disease_predict/model/<fold>/members/*/model.pth
+#      data/healthy_disease_predict/model/<fold>/members/*/model.pth   (not in git)
 #      ../microbial-embeddings/analysis/Disease_classification_loo/Data/loo_all_diseases/data/
 
 # 1. Atlas arrays. The notebook is the reference implementation; this build
@@ -30,8 +30,7 @@ jupyter nbconvert --execute script/atlas_export.ipynb
 
 # 4. Quantised similarities, download formats, vsearch database, manifest.
 #    Last, because it rewrites meta.json.
-.venv-export/bin/python script/web_export/export_assets.py \
-    --site-url https://your.domain
+.venv-export/bin/python script/web_export/export_assets.py
 
 # 5. The fixture the browser regression test compares against.
 .venv-export/bin/python script/web_export/export_golden.py
@@ -39,8 +38,19 @@ jupyter nbconvert --execute script/atlas_export.ipynb
 # 6. Downloadable files: the reference cohort's sample metadata, then the
 #    example inputs for the atlas search and the dysbiosis uploads. Standard
 #    library only; the second step refreshes manifest.json.
-cp data/healthy_disease_predict/metadata_disease_classification.tsv \
-   data/web/download/disease_sample_metadata.tsv
+#    host_body_mass_index is empty in every row (bmi carries the values), so it
+#    is dropped; every other cell is copied unchanged.
+python3 - <<'PY'
+src = "data/healthy_disease_predict/metadata_disease_classification.tsv"
+dst = "data/web/download/disease_sample_metadata.tsv"
+lines = open(src, newline="").read().split("\n")
+drop = lines[0].split("\t").index("host_body_mass_index")
+rows = [line.split("\t") for line in lines]
+for cells in rows:
+    if len(cells) > drop:
+        del cells[drop]
+open(dst, "w", newline="").write("\n".join("\t".join(c) for c in rows))
+PY
 python3 script/web_export/export_examples.py
 
 # 7. SILVA lineages of the vocabulary, for the dysbiosis result's taxa.

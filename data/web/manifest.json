@@ -7,23 +7,8 @@
   },
   {
    "file": "download/disease_sample_metadata.tsv",
-   "bytes": 1618839,
-   "sha256": "80c9141ebdbc3f169b8bb57c261e9419413f1a73b340240dce53f5cb79f6b32f"
-  },
-  {
-   "file": "download/projector_config.json",
-   "bytes": 313,
-   "sha256": "6d66fd616feb8a25723200b679350322d4a3b684c801b5c88d6c8db574cbf6f2"
-  },
-  {
-   "file": "download/projector_metadata.tsv",
-   "bytes": 1380718,
-   "sha256": "7e2064657d5d702b8605f749d2856fb336afc080ca2b6a099575a5d649fe24ff"
-  },
-  {
-   "file": "download/projector_vectors.tsv",
-   "bytes": 13169908,
-   "sha256": "d425a22c25fdd238fc07d5c7e50c19a10c54c5bbb3629bc6189508218ec6f0d5"
+   "bytes": 1608542,
+   "sha256": "ea0be47f6782aad87e32825cb0598361dfdaedd69abd6ae65c8d8400a05bd2ce"
   },
   {
    "file": "download/sne_vectors.txt.gz",
@@ -52,8 +37,8 @@
   },
   {
    "file": "examples/atlas_asv_example.fasta",
-   "bytes": 674,
-   "sha256": "b76add9c6473c33db522e199d23885d162557ed284e3ac06df2f73f6efa50ec9"
+   "bytes": 676,
+   "sha256": "44a86ee5dbc09d5e7682bb1a16f7fe26cf3a75afbf9cd54a46ca1b5bfa9729c2"
   },
   {
    "file": "examples/crc_case.json",
@@ -166,6 +151,5 @@
    "sha256": "78ff1a4b73ac6dd0697fc316d5a947e5e80a95b7ffef936e6bbeeaf99ca122ce"
   }
  ],
- "projector_url": "https://projector.tensorflow.org/?config=https://microbiome.example.org/data/download/projector_config.json",
  "note": "Every file here is served from /data/ on this site."
 }

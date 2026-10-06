@@ -6,7 +6,7 @@
 <title>Gut Microbial Social Niche Atlas — SNEs</title>
 <meta name="description" content="An interactive map of 14,093 human gut OTUs based on ecological embeddings, with predicted traits and their cross-validated performance.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/main.css?v=5">
+<link rel="stylesheet" href="/assets/css/main.css?v=6">
 </head>
 <body>
 
@@ -38,13 +38,8 @@
     <p class="kicker">Interactive atlas</p>
     <h1>Gut Microbial Social Niche Atlas</h1>
     <p class="lede mt-12">
-      Each point represents one OTU, positioned according to its ecological
-      embedding. Two OTUs lie close together when they share co-occurrence
-      partners, that is when the same taxa surround them in a community, rather
-      than when they occur together; that shared company is what makes their
-      ecological niches similar, independent of phylogenetic relatedness.
-      Select an OTU to compare its ecological and phylogenetic neighbours side
-      by side.
+      Each point is an OTU, placed by its social niche embedding. Select an
+      OTU to compare its ecological and phylogenetic neighbors.
     </p>
   </div>
 
@@ -60,15 +55,12 @@
           <button type="button" class="link" data-query="Faecalibacterium prausnitzii"><i>Faecalibacterium prausnitzii</i></button> (species) ·
           <button type="button" class="link" data-query="HM007585.1.1335">HM007585.1.1335</button> (OTU) ·
           <button type="button" class="link" data-asv="0">ASV 1</button>,
-          <button type="button" class="link" data-asv="1">ASV 2</button> (300-bp V4 reads)
+          <button type="button" class="link" data-asv="1">ASV 2</button> (300-bp reads spanning V4)
         </p>
         <p class="small muted mt-8" style="margin-bottom:0">
-          Names follow the <b>SILVA 138.2</b> taxonomy throughout this site, and
-          matching is on family, genus and species. An <b>OTU identifier</b> is
-          that OTU's SILVA reference accession followed by the aligned region,
-          <span class="mono">accession.start.stop</span>, as used in the OTU
-          tables. Only 1,245 of the 14,093 OTUs (9%) carry a species name in
-          SILVA, so a genus is usually the more reliable query.
+          Names and identifiers follow SILVA 138.2; few OTUs carry a species
+          name, so a genus is usually the better query. Details are under
+          <a href="#methods">Methods and interpretation</a>.
         </p>
         <p class="small muted mt-8" style="margin-bottom:0">
           <label for="reads" style="font-weight:400">Or upload representative sequences (FASTA) for multiple ASVs
@@ -78,7 +70,7 @@
         <div id="results" class="stack mt-8"></div>
       </div>
       <div>
-        <label for="color-by">Colour by</label><br>
+        <label for="color-by">Color by</label><br>
         <select id="color-by" class="mt-4"></select>
       </div>
       <div>
@@ -110,7 +102,7 @@
           <strong>Layout.</strong> Point positions are a UMAP projection of the
           100-dimensional ecological embeddings. Distances in two dimensions
           are approximate and should not be interpreted quantitatively; the
-          ecological neighbour list gives cosine similarities in the full
+          ecological neighbor list gives cosine similarities in the full
           100-dimensional space.
         </p>
         <p>
@@ -126,17 +118,17 @@
           <span class="mono">accession.start.stop</span>; the identifier
           <span class="mono">HM007585.1.1335</span>, for example, is bases 1 to
           1,335 of GenBank accession HM007585. These are the identifiers the
-          OTU tables use, and the ones the dysbiosis score expects. A species
-          name is given only where the SILVA record names an isolate: that is
-          1,245 of the 14,093 OTUs. The others were sequenced from uncultured
-          material and carry no species in SILVA, so they are reached by genus,
-          by identifier, or by searching their sequence.
+          OTU tables use, and the ones the dysbiosis score expects. The search
+          matches family, genus, species and identifier. A species name is
+          given only where the SILVA record names one: that is 1,245 of the
+          14,093 OTUs. The others carry no species name in SILVA, so they are
+          reached by genus, by identifier, or by searching their sequence.
         </p>
         <p>
-          <strong>The two neighbour lists.</strong> Ecological neighbours are
-          ranked by the cosine similarity of the social niche embeddings, so
-          1.000 would be an identical co-occurrence pattern across the
-          approximately 210,000 samples. Phylogenetic neighbours are ranked by
+          <strong>The two neighbor lists.</strong> Ecological neighbors are
+          ranked by the cosine similarity of the social niche embeddings: 1
+          means the two embeddings point in the same direction, that is the
+          OTUs share the same co-occurrence partners. Phylogenetic neighbors are ranked by
           patristic distance on the SILVA 138.2 reference tree &mdash; the sum
           of the branch lengths along the path between the two OTUs, in
           substitutions per site &mdash; so 0 would be the same position in the
@@ -154,7 +146,7 @@
           leave-one-phylum-out cross-validation, in which all members of the
           test phylum are excluded from training. This is stricter than random
           splitting, and it is the appropriate test here because most OTUs with
-          a prediction are uncultured and lie outside the training
+          a prediction have no linked genome and lie outside the training
           distribution. A predicted trait is an inference rather than a
           measurement, and the AUC earned on that test is shown beside it.
         </p>
@@ -190,7 +182,7 @@
         </svg>
       </a>
       <p>Social niche embeddings of the human gut microbiome.</p>
-      <p>&copy; 2026 SNEs &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
+      <p>&copy; 2026 Xu lab &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
     </div>
     <div>
       <h2>Resources</h2>
@@ -217,13 +209,9 @@
       </ul>
     </div>
   </div>
-  <div class="site-footer__bottom">
-    <span>SILVA 138.2 &middot; 14,093 OTUs &middot; ~210,000 human faecal samples</span>
-    <span>Manuscript in submission</span>
-  </div>
 </footer>
 
-<script type="module" src="/assets/js/atlas.js?v=9"></script>
+<script type="module" src="/assets/js/atlas.js?v=10"></script>
 
 </body>
 </html>

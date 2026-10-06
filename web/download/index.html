@@ -6,7 +6,7 @@
 <title>Download — SNEs</title>
 <meta name="description" content="Data files used by the SNEs site, including sample-level metadata for the 13-disease reference cohort.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/main.css?v=5">
+<link rel="stylesheet" href="/assets/css/main.css?v=6">
 </head>
 <body>
 
@@ -58,13 +58,16 @@
           <tr><td>Model</td><td class="mono" id="model-version">—</td></tr>
           <tr><td>Reference cohort</td><td class="mono" id="cohort">—</td></tr>
           <tr><td>Leave-one-disease-out AUC</td><td class="mono" id="lodo">—</td></tr>
-          <tr><td>Vocabulary</td><td class="mono" id="vocab-size">—</td></tr>
-          <tr><td>OTUs with a trained embedding</td><td class="mono" id="informative">—</td></tr>
+          <tr><td>Dysbiosis model vocabulary</td><td class="mono" id="vocab-size">—</td></tr>
+          <tr><td>OTUs with an embedding in the dysbiosis model</td><td class="mono" id="informative">—</td></tr>
           <tr><td>Maximum input length (OTUs per sample)</td><td class="mono" id="steps">—</td></tr>
         </tbody>
       </table>
       <p class="small muted mt-12" style="margin-bottom:0">
-        Report these alongside any result taken from this site. Fold
+        The dysbiosis model uses social niche embeddings retrained without the
+        disease studies, as described in the paper's Methods, so it covers
+        fewer OTUs than the 14,093 shown in the atlas. Report these values
+        alongside any result taken from this site. Fold
         checkpoints, per-disease AUCs and the validation AUC used to select each
         fold are listed in
         <a href="/data/metrics.json" class="mono">metrics.json</a>.
@@ -79,7 +82,7 @@
       <p>
         <strong class="mono">disease_sample_metadata.tsv</strong> &mdash; Sample-level
         metadata for the reference cohort of the dysbiosis score: 10,276 human
-        faecal 16S rRNA samples (4,386 controls and 5,890 cases) from 13
+        fecal 16S rRNA samples (4,386 controls and 5,890 cases) from 13
         diseases. Tab-separated, one row per sample; an empty cell is a value
         the original study did not report.
       </p>
@@ -88,12 +91,12 @@
           <thead><tr><th>Column</th><th>Contents</th></tr></thead>
           <tbody>
             <tr><td class="mono">sample</td><td>Sequencing run accession</td></tr>
-            <tr><td class="mono">study</td><td>BioProject accession</td></tr>
+            <tr><td class="mono">study</td><td>Study identifier: a BioProject (PRJNA, PRJEB, PRJDB, PRJCA), SRA study (SRP) or Qiita (qiita_) accession, or a consortium cohort name (RISK_PRISM_f)</td></tr>
             <tr><td class="mono">title</td><td>Title of the source study</td></tr>
             <tr><td class="mono">diagnosis</td><td>Diagnosis as reported by the study</td></tr>
             <tr><td class="mono">group</td><td>0 for controls, 1 for cases</td></tr>
             <tr><td class="mono">disease_name, disease_name_ab</td><td>Disease name and its abbreviation</td></tr>
-            <tr><td class="mono">age, sex, bmi, host_body_mass_index, country, subject_id</td><td>Host information</td></tr>
+            <tr><td class="mono">age, sex, bmi, country, subject_id</td><td>Host information</td></tr>
             <tr><td class="mono">region, pcr_primers, platform</td><td>Amplified 16S region, primers and sequencing platform</td></tr>
             <tr><td class="mono">site</td><td>Sampling site</td></tr>
           </tbody>
@@ -130,7 +133,7 @@
         </svg>
       </a>
       <p>Social niche embeddings of the human gut microbiome.</p>
-      <p>&copy; 2026 SNEs &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
+      <p>&copy; 2026 Xu lab &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
     </div>
     <div>
       <h2>Resources</h2>
@@ -157,10 +160,6 @@
       </ul>
     </div>
   </div>
-  <div class="site-footer__bottom">
-    <span>SILVA 138.2 &middot; 14,093 OTUs &middot; ~210,000 human faecal samples</span>
-    <span>Manuscript in submission</span>
-  </div>
 </footer>
 
 <script type="module">
@@ -175,7 +174,7 @@ const DESCRIPTIONS = {
     + "keyed by SILVA 138.2 identifier",
   "traits_proba.f16.bin":
     "Random forest probabilities for every class of every trait, for each "
-    + "labelled OTU (float16, in the layout traits.json describes). These draw "
+    + "labeled OTU (float16, in the layout traits.json describes). These draw "
     + "the atlas's distribution plots",
   "traits.json":
     "Trait metadata: the class order of each trait, its offset into "

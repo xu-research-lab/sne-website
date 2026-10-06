@@ -11,7 +11,7 @@
 import { loadArray, fetchWithProgress, halfToFloat } from './binary.js?v=5';
 import { element } from './dom.js?v=5';
 import { Scatter } from './scatter.js?v=6';
-import { renderCard, cardSummary } from './card.js?v=9';
+import { renderCard, cardSummary } from './card.js?v=10';
 
 // Okabe-Ito. Colour is a convenience here, never the only carrier of a
 // distinction: the card labels everything in words.
@@ -89,7 +89,7 @@ function renderLegend(field) {
   const heading = element('div');
   heading.style.marginBottom = '6px';
   heading.textContent = data.meta.color_by[field].length > MAX_CATEGORIES
-    ? `${data.meta.color_by[field].length} categories; the smallest are grouped as one colour`
+    ? `${data.meta.color_by[field].length} categories; the smallest are grouped as one color`
     : `${levels.length} categories`;
   legend.appendChild(heading);
 
@@ -340,7 +340,7 @@ async function load() {
                                               track('Loading trait probabilities…'));
   const bacdive = await (await fetch('/data/bacdive.json', { cache: 'no-cache' })).json();
 
-  setStatus('Loading neighbour lists…');
+  setStatus('Loading neighbor lists…');
   const loadHalf = async (name) => halfToFloat(new Uint16Array(
     await fetchWithProgress(`/data/${name}`)));
   const nbrSneIdx = await loadArray('/data/nbr_sne_idx.i16.bin',

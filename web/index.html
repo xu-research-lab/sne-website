@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SNEs — social niche embeddings of the human gut microbiome</title>
-<meta name="description" content="Social niche embeddings of 14,093 human gut OTUs, with an interactive atlas, trait predictions for uncultured taxa and a research-use dysbiosis score.">
+<meta name="description" content="Social niche embeddings of human gut OTUs, with an interactive atlas, trait predictions for taxa without a sequenced genome, and a research-use dysbiosis score.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/css/main.css?v=5">
+<link rel="stylesheet" href="/assets/css/main.css?v=6">
 </head>
 <body>
 
@@ -48,8 +48,8 @@
       <a href="/atlas/?q=HM007585.1.1335">HM007585.1.1335</a>
     </p>
     <p class="hero-band__tagline">
-      <b>Social niche embeddings (SNEs)</b> is a resource for 14,093 human gut
-      OTUs, learned from co-occurrence in approximately 210,000 faecal samples.
+      <b>Social niche embeddings (SNEs)</b> describe each human gut OTU by the
+      company it keeps in fecal communities.
       <a href="/#cite">How to cite</a>
     </p>
   </div>
@@ -70,13 +70,13 @@
     <a class="tile tile--atlas" href="/atlas/">
       <span class="tile__title">Atlas<small>Social niche map</small></span>
       <img class="tile__art" src="/assets/img/tile-atlas.svg" alt="" width="220" height="130">
-      <p class="tile__text">Browse 14,093 OTUs, compare ecological and phylogenetic
-        neighbours, and view predicted traits</p>
+      <p class="tile__text">Browse the OTUs, compare ecological and phylogenetic
+        neighbors, and view predicted traits</p>
     </a>
     <a class="tile tile--dysbiosis" href="/dysbiosis/">
       <span class="tile__title">Dysbiosis<small>Score</small></span>
       <img class="tile__art" src="/assets/img/tile-dysbiosis.svg" alt="" width="220" height="130">
-      <p class="tile__text">Score a faecal 16S rRNA sample against a reference cohort
+      <p class="tile__text">Score a fecal 16S rRNA sample against a reference cohort
         of 10,276 samples</p>
     </a>
     <a class="tile tile--data" href="/download/">
@@ -92,20 +92,19 @@
     <div class="hero mt-16">
       <div>
         <p class="lede">
-          We represent each of 14,093 SILVA 138.2 OTUs (97% identity) as a
-          100-dimensional social niche embedding, learned from co-occurrence
-          patterns in approximately 210,000 human faecal samples. Two OTUs lie
-          close together when they share co-occurrence partners, that is when
-          they keep the same company, rather than when they occur together, and
-          keeping the same company is what it means to occupy a similar social
-          niche, independent of phylogenetic relatedness.
-          This site provides an interactive atlas of the embeddings, trait
-          predictions for uncultured taxa, a research-use dysbiosis score and
+          We represent each SILVA 138.2 OTU (97% identity) as a social niche
+          embedding, learned from its co-occurrence across human fecal samples.
+          Two OTUs lie close together when they share co-occurrence partners,
+          that is when they keep the same company, rather than when they occur
+          together. That shared company defines a social niche, which is related
+          to phylogeny but is not simply a reflection of it. This site provides
+          an interactive atlas of the embeddings, trait predictions for taxa
+          without a sequenced genome, a research-use dysbiosis score and
           downloadable data files.
         </p>
 
         <div class="figures mt-24">
-          <div><b>~210,000</b><span>human faecal samples</span></div>
+          <div><b>~210,000</b><span>human fecal samples</span></div>
           <div><b>14,093</b><span>OTU embeddings</span></div>
           <div><b>100</b><span>embedding dimensions</span></div>
           <div><b>13</b><span>diseases in the reference cohort</span></div>
@@ -114,10 +113,10 @@
 
     <figure class="hero__figure">
       <a href="/atlas/"><img src="/assets/img/umap-phylum.png" width="920" height="800"
-        alt="UMAP projection of the 14,093 social niche embeddings, coloured by phylum"></a>
+        alt="UMAP projection of the social niche embeddings, colored by phylum"></a>
       <figcaption>
         <span class="swatches">
-          <span>UMAP of 14,093 embeddings, by phylum:</span>
+          <span>UMAP of the embeddings, by phylum:</span>
           <span><i style="background:#0072B2"></i><em>Bacillota</em></span>
           <span><i style="background:#D55E00"></i><em>Bacteroidota</em></span>
           <span><i style="background:#009E73"></i><em>Pseudomonadota</em></span>
@@ -137,12 +136,12 @@
         role of a taxon within the gut community, inferred from the taxa it
         co-occurs with. This is not equivalent to its physiology in pure
         culture. For example, an OTU predicted to be anaerobic is one whose gut
-        neighbours are anaerobes. That is evidence about the niche it occupies,
+        neighbors are anaerobes. That is evidence about the niche it occupies,
         not a measurement of its oxygen tolerance in culture.
       </p>
       <p>
-        All models were trained on human faecal 16S rRNA data. The results do
-        not apply to soil, marine, oral or skin communities, and none of the
+        All models were trained on human fecal 16S rRNA data. The results do
+        not apply to soil, water, oral, skin or vaginal communities, and none of the
         outputs are intended for diagnosis.
       </p>
     </div>
@@ -160,11 +159,12 @@
         please cite the code repository and the version of the data you used,
         which is listed on the <a href="/download/#version">download page</a>.
       </p>
-      <pre class="code" id="bibtex">@article{microbial_social_niches,
-  title   = {Ecological embeddings reveal microbial social niches that
-             generalize across diseases},
-  note    = {Manuscript in submission},
-  url     = {https://github.com/xu-research-lab/microbial-embeddings}
+      <pre class="code" id="bibtex">@misc{snes2026,
+  title        = {Ecological embeddings reveal microbial social niches that
+                  generalize across diseases},
+  year         = {2026},
+  howpublished = {\url{https://sne.xulab.science}},
+  note         = {Code: \url{https://github.com/xu-research-lab/microbial-embeddings}}
 }</pre>
       <p style="margin-bottom:0"><button type="button" id="copy-bibtex" class="button--quiet">Copy BibTeX</button></p>
     </div>
@@ -206,7 +206,7 @@ document.getElementById("copy-bibtex").addEventListener("click", async (event) =
         </svg>
       </a>
       <p>Social niche embeddings of the human gut microbiome.</p>
-      <p>&copy; 2026 SNEs &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
+      <p>&copy; 2026 Xu lab &middot; <a href="https://github.com/xu-research-lab/microbial-embeddings">GitHub</a></p>
     </div>
     <div>
       <h2>Resources</h2>
@@ -232,10 +232,6 @@ document.getElementById("copy-bibtex").addEventListener("click", async (event) =
         <li><a href="https://xulab.pages.dev/en/">Xu lab</a></li>
       </ul>
     </div>
-  </div>
-  <div class="site-footer__bottom">
-    <span>SILVA 138.2 &middot; 14,093 OTUs &middot; ~210,000 human faecal samples</span>
-    <span>Manuscript in submission</span>
   </div>
 </footer>
 

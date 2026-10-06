@@ -3,7 +3,7 @@
 A visitor who has never exported an OTU table cannot guess what the upload
 boxes want, so each input route gets a small real file to open or run:
 
-    examples/atlas_asv_example.fasta   two 300-base V4 reads for the atlas search
+    examples/atlas_asv_example.fasta   two 300-base reads spanning V4, for the atlas search
     examples/otu_table_example.tsv     two samples keyed by SILVA 138.2 OTU id
     examples/rep_seqs_example.fasta    the same two samples as amplicon sequences
     examples/asv_table_example.tsv     ... and their ASV count table
@@ -89,7 +89,7 @@ def write_atlas_reads(out_dir):
             read = list(amplicon(atlas[otu]))
             for position in SUBSTITUTIONS:
                 read[position] = TRANSITION[read[position]]
-            handle.write(f">ASV_{number} {genus}, V4 region, 300 bp\n{''.join(read)}\n")
+            handle.write(f">ASV_{number} {genus}, 300 bp spanning V4\n{''.join(read)}\n")
 
 
 def write_sample_tables(out_dir):

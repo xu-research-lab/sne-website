@@ -59,12 +59,13 @@ function renderNeighbours(container, index, data) {
   // The two columns cannot share a scale: one is a similarity between
   // embeddings, the other a distance on a tree. Each says which it is.
   const lists = [
-    { title: 'Ecological neighbours', idx: data.nbrSneIdx, value: data.nbrSneSim,
+    { title: 'Ecological neighbors', idx: data.nbrSneIdx, value: data.nbrSneSim,
       other: phylogenetic, decimals: 3,
-      caption: 'Cosine similarity of the social niche embeddings: 1 is an '
-        + 'identical co-occurrence pattern, and the list runs from the most '
-        + 'similar downwards.' },
-    { title: 'Phylogenetic neighbours', idx: data.nbrPhyloIdx, value: data.nbrPhyloDist,
+      caption: 'Cosine similarity of the social niche embeddings: 1 means the '
+        + 'two embeddings point in the same direction, that is the OTUs share '
+        + 'the same co-occurrence partners. The list runs from the most similar '
+        + 'downwards.' },
+    { title: 'Phylogenetic neighbors', idx: data.nbrPhyloIdx, value: data.nbrPhyloDist,
       other: ecological, decimals: 3,
       caption: 'Patristic distance on the SILVA 138.2 reference tree, in '
         + 'substitutions per site: 0 is the same position in the tree, and the '
@@ -110,8 +111,8 @@ function renderNeighbours(container, index, data) {
   const note = element('p', 'small muted');
   note.textContent = `The ${NEIGHBOURS_SHOWN} nearest of each kind. ${overlap} of `
     + `${NEIGHBOURS_SHOWN} OTUs appear in both lists (shaded); ${sameGenus} of the `
-    + `${NEIGHBOURS_SHOWN} ecological neighbours belong to a genus that also appears `
-    + `among the phylogenetic neighbours.`;
+    + `${NEIGHBOURS_SHOWN} ecological neighbors belong to a genus that also appears `
+    + `among the phylogenetic neighbors.`;
   wrapper.appendChild(note);
 
   container.replaceChildren(wrapper);
@@ -230,7 +231,7 @@ function renderBandFor(trait, record, data) {
 function bandDetails(trait, record, data) {
   if (!renderBandFor(trait, record, data)) return null;
   const details = element('details');
-  details.appendChild(element('summary', null, 'Show distribution in labelled OTUs'));
+  details.appendChild(element('summary', null, 'Show distribution in labeled OTUs'));
   const body = element('div', 'band');
   details.appendChild(body);
   details.addEventListener('toggle', () => {
@@ -313,7 +314,7 @@ export function renderCard(container, index, data) {
   heading.appendChild(element('div', 'otu-id', record.id));
   title.appendChild(heading);
   if (!record.genome_linked) {
-    title.appendChild(element('span', 'badge', 'no reference genome'));
+    title.appendChild(element('span', 'badge', 'no linked genome'));
   }
   fragment.appendChild(title);
 
@@ -327,7 +328,7 @@ export function renderCard(container, index, data) {
   provenance.style.margin = '0 0 16px';
   provenance.textContent = record.genome_linked
     ? 'Linked to a representative genome: the traits below marked Traitar were called from that genome, not predicted from the embedding.'
-    : 'Uncultured: no representative genome is available, so every trait below is predicted from the embedding.';
+    : 'No linked genome: no representative genome was matched to this OTU, so every trait below is predicted from the embedding.';
   fragment.appendChild(provenance);
 
   // Neighbours and traits side by side when the card is wide enough.
