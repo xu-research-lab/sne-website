@@ -75,9 +75,11 @@ for a deployment that manages its own certificates. Both expect the site at
 limit_req_zone $binary_remote_addr zone=map_limit:10m rate=10r/m;
 ```
 
-Rate-limit zones are only valid in nginx's `http` block, so this goes in
-`/etc/nginx/nginx.conf`, not in the site config. Without it nginx refuses to
-start, naming the `limit_req` line in the site config.
+Rate-limit zones are only valid in nginx's `http` block, so this cannot go in
+the site config. The README puts it in `/etc/nginx/conf.d/map-limit.conf`,
+which Ubuntu's `nginx.conf` includes inside `http`; adding it to the `http`
+block of `/etc/nginx/nginx.conf` directly works too. Without it nginx refuses
+to start, naming the `limit_req` line in the site config.
 
 ### What each location does
 
@@ -179,7 +181,7 @@ stay open and reachable even after the site moves to HTTPS.
 
 Nothing on the server is stateful: no database, no uploads, no sessions. What
 is worth keeping lives on the build machine and in git. Rebuilding the server
-is the README's first-deployment section, start to finish.
+is the README's "Deploy to a new server" section, start to finish.
 
 ---
 
