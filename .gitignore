@@ -28,3 +28,8 @@ data/atlas_source/
 
 # Test and notebook caches
 .pytest_cache/
+
+# The 416 fold checkpoints (2.4 GB). The site ships only the ONNX graph
+# exported from them; export_dysbiosis.py reads them from here on the build
+# machine, where the training run left them.
+data/healthy_disease_predict/model/
