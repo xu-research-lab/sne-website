@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Download — SNEs</title>
-<meta name="description" content="Data files used by the SNEs site, including sample-level metadata for the 13-disease reference cohort.">
+<meta name="description" content="Data files used by the SNEs site, including sample-level metadata for the 12-disease classification cohort.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/css/main.css?v=6">
 </head>
@@ -38,8 +38,8 @@
   <h1>Download</h1>
 
   <p class="lede mt-12">
-    Data files used by this site: the sample-level metadata of the reference
-    cohort, the social niche embedding matrix, the trait probabilities and the
+    Data files used by this site: the sample-level metadata of the disease
+    classification cohort, the social niche embedding matrix, the trait probabilities and the
     reference cohort scores.
   </p>
 
@@ -64,12 +64,14 @@
         </tbody>
       </table>
       <p class="small muted mt-12" style="margin-bottom:0">
-        The dysbiosis model uses social niche embeddings retrained without the
-        disease studies, as described in the paper's Methods, so it covers
-        fewer OTUs than the 14,093 shown in the atlas. Report these values
-        alongside any result taken from this site. Fold
-        checkpoints, per-disease AUCs and the validation AUC used to select each
-        fold are listed in
+        These values describe the model now online. It was trained before the
+        paper's revision of the disease cohort and still includes autism
+        spectrum disorder; the metadata file below describes the paper's
+        12-disease cohort. The model uses social niche embeddings retrained
+        without the disease studies (the paper's Methods), so it covers fewer
+        OTUs than the 14,093 in the atlas. Report these values alongside any
+        result taken from this site. Fold checkpoints, per-disease AUCs and
+        the validation AUC used to select each fold are listed in
         <a href="/data/metrics.json" class="mono">metrics.json</a>.
       </p>
     </div>
@@ -81,9 +83,9 @@
     <div class="stack mt-12">
       <p>
         <strong class="mono">disease_sample_metadata.tsv</strong> &mdash; Sample-level
-        metadata for the reference cohort of the dysbiosis score: 10,276 human
-        fecal 16S rRNA samples (4,386 controls and 5,890 cases) from 13
-        diseases. Tab-separated, one row per sample; an empty cell is a value
+        metadata for the paper's disease classification cohort: 10,358 human
+        fecal 16S rRNA samples (4,326 controls and 6,032 cases) in 58 cohorts
+        from 12 diseases. Tab-separated, one row per sample; an empty cell is a value
         the original study did not report.
       </p>
       <div class="table-box">
@@ -107,12 +109,11 @@
           <thead><tr><th>Abbreviation</th><th>Disease</th><th>Abbreviation</th><th>Disease</th></tr></thead>
           <tbody>
             <tr><td>AS</td><td>Ankylosing spondylitis</td><td>IBS</td><td>Irritable bowel syndrome</td></tr>
-            <tr><td>ASD</td><td>Autism spectrum disorder</td><td>MS</td><td>Multiple sclerosis</td></tr>
-            <tr><td>BD</td><td>Bipolar disorder</td><td>OB</td><td>Obesity</td></tr>
-            <tr><td>CAD</td><td>Coronary artery disease</td><td>PD</td><td>Parkinson's disease</td></tr>
-            <tr><td>CRC</td><td>Colorectal cancer</td><td>SZ</td><td>Schizophrenia</td></tr>
-            <tr><td>GD</td><td>Graves' disease</td><td>T2DM</td><td>Type 2 diabetes mellitus</td></tr>
-            <tr><td>IBD</td><td>Inflammatory bowel disease</td><td></td><td></td></tr>
+            <tr><td>BD</td><td>Bipolar disorder</td><td>MS</td><td>Multiple sclerosis</td></tr>
+            <tr><td>CAD</td><td>Coronary artery disease</td><td>OB</td><td>Obesity</td></tr>
+            <tr><td>CRC</td><td>Colorectal cancer</td><td>PD</td><td>Parkinson's disease</td></tr>
+            <tr><td>GD</td><td>Graves' disease</td><td>SZ</td><td>Schizophrenia</td></tr>
+            <tr><td>IBD</td><td>Inflammatory bowel disease</td><td>T2DM</td><td>Type 2 diabetes mellitus</td></tr>
           </tbody>
         </table>
       </div>
@@ -168,7 +169,7 @@
 // says is needed to read it.
 const DESCRIPTIONS = {
   "download/disease_sample_metadata.tsv":
-    "Sample-level metadata for the 13-disease reference cohort (10,276 samples)",
+    "Sample-level metadata for the 12-disease classification cohort (10,358 samples)",
   "download/sne_vectors.txt.gz":
     "Embedding matrix, 14,093 × 100, in GloVe text format: one OTU per line, "
     + "keyed by SILVA 138.2 identifier",

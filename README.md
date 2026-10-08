@@ -192,6 +192,12 @@ Everything works except sequence search, which needs the `/map` service.
 - **The dysbiosis model knows 8,850 OTUs; the atlas shows 14,093.** The model
   uses embeddings retrained without the disease studies, which cover fewer
   OTUs.
+- **The model online is older than the paper's disease cohort.** It was
+  trained on 13 diseases (10,276 samples, including autism spectrum disorder);
+  the paper and the download page use the revised cohort of 12 diseases
+  (10,358 samples). When the new checkpoints are ready, rebuild the model with
+  `script/web_export/export_dysbiosis.py` and remove the notes about this on
+  the dysbiosis and download pages.
 - **The AUC to quote is 0.64** (leave-one-disease-out). `metrics.json` also
   holds 0.7976, measured on the model's own training cohort: never quote it.
 - **Trait values come from three places.** BacDive: measured. Traitar:

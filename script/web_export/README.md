@@ -35,7 +35,7 @@ jupyter nbconvert --execute script/atlas_export.ipynb
 # 5. The fixture the browser regression test compares against.
 .venv-export/bin/python script/web_export/export_golden.py
 
-# 6. Downloadable files: the reference cohort's sample metadata, then the
+# 6. Downloadable files: the paper's disease cohort metadata, then the
 #    example inputs for the atlas search and the dysbiosis uploads. Standard
 #    library only; the second step refreshes manifest.json.
 #    host_body_mass_index is empty in every row (bmi carries the values), so it
